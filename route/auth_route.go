@@ -8,13 +8,17 @@ import (
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 	"uas-backend/app/service"
+	"uas-backend/middleware"
 )
 
 func AuthRoutes(r fiber.Router) {
 
-	authRepo := repository.NewAuthRepository()
-	authService := service.NewAuthService(authRepo)
+	userRepo := repository.NewUserRepository()
+	authService := service.NewAuthService(userRepo)
 
+	// ===========================
+	// PUBLIC ROUTES (NO JWT)
+	// ===========================
 	r.Post("/login", func(c *fiber.Ctx) error {
 
 		var req model.LoginRequest
@@ -46,4 +50,10 @@ func AuthRoutes(r fiber.Router) {
 			},
 		})
 	})
+
+	// ===========================
+	// PROTECTED ROUTES (JWT REQUIRED)
+	// ===========================
+
+	protected := r.Group("/", middleware.JWTAuth())
 }

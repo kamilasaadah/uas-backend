@@ -19,16 +19,16 @@ type AuthService interface {
 }
 
 type authService struct {
-	repo repository.AuthRepository
+	repo repository.UserRepository
 }
 
-func NewAuthService(repo repository.AuthRepository) AuthService {
+func NewAuthService(repo repository.UserRepository) AuthService {
 	return &authService{repo: repo}
 }
 
 func (s *authService) Login(ctx context.Context, req model.LoginRequest) (string, string, *model.AuthUserResponse, error) {
 
-	user, err := s.repo.FindUserByUsernameOrEmail(ctx, req.Username)
+	user, err := s.repo.FindByUsernameOrEmail(ctx, req.Username)
 	if err != nil {
 		return "", "", nil, errors.New("invalid credentials")
 	}
@@ -38,12 +38,12 @@ func (s *authService) Login(ctx context.Context, req model.LoginRequest) (string
 	}
 
 	// check password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		return "", "", nil, errors.New("invalid credentials")
 	}
 
 	// load permissions
-	perms, err := s.repo.GetPermissionsByRole(ctx, user.RoleID)
+	perms, err := s.repo.GetUserPermissions(user.ID)
 	if err != nil {
 		return "", "", nil, errors.New("failed to load permissions")
 	}
