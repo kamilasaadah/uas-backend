@@ -12,8 +12,8 @@ import (
 
 func AuthRoutes(r fiber.Router) {
 
-	authRepo := repository.NewAuthRepository()
-	authService := service.NewAuthService(authRepo)
+	userRepo := repository.NewUserRepository()
+	authService := service.NewAuthService(userRepo)
 
 	r.Post("/login", func(c *fiber.Ctx) error {
 

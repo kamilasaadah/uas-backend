@@ -7,6 +7,7 @@ type User struct {
 	PasswordHash string `json:"-"`
 	FullName     string `json:"full_name"`
 	RoleID       string `json:"role_id"`
+	RoleName     string `json:"role_name"`
 	IsActive     bool   `json:"is_active"`
 }
 
