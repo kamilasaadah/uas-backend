@@ -1,5 +1,15 @@
 package model
 
+type User struct {
+	ID           string `json:"id"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"-"`
+	FullName     string `json:"full_name"`
+	RoleID       string `json:"role_id"`
+	IsActive     bool   `json:"is_active"`
+}
+
 // ======================= LOGIN REQUEST =======================
 
 type LoginRequest struct {
