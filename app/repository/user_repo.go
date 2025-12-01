@@ -23,10 +23,11 @@ func NewUserRepository() UserRepository {
 
 func (r *userRepository) FindByUsernameOrEmail(ctx context.Context, username string) (*model.User, error) {
 	query := `
-	SELECT id, username, email, password_hash, full_name, role_id, is_active 
-	FROM users 
-	WHERE username = $1 OR email = $1
-	`
+	SELECT u.id, u.username, u.email, u.password_hash, 
+       u.full_name, u.role_id, r.name AS role_name, u.is_active
+	FROM users u
+	JOIN roles r ON r.id = u.role_id
+	WHERE u.username = $1 OR u.email = $1`
 
 	row := database.PG.QueryRow(ctx, query, username)
 
@@ -38,6 +39,7 @@ func (r *userRepository) FindByUsernameOrEmail(ctx context.Context, username str
 		&user.PasswordHash,
 		&user.FullName,
 		&user.RoleID,
+		&user.RoleName,
 		&user.IsActive,
 	)
 
