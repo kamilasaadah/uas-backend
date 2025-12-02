@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
@@ -56,4 +57,24 @@ func AuthRoutes(r fiber.Router) {
 	// ===========================
 
 	protected := r.Group("/", middleware.JWTAuth())
+
+	// FR-003 (nanti) — profile endpoint
+	protected.Get("/profile", func(c *fiber.Ctx) error {
+
+		claims := c.Locals("user").(jwt.MapClaims)
+
+		return c.JSON(fiber.Map{
+			"code":    200,
+			"message": "Profile fetched",
+			"data": fiber.Map{
+				"id":          claims["user_id"],
+				"username":    claims["username"],
+				"full_name":   claims["full_name"],
+				"role":        claims["role"],
+				"role_id":     claims["role_id"],
+				"permissions": claims["permissions"],
+			},
+		})
+	})
+
 }

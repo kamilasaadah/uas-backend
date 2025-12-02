@@ -53,6 +53,9 @@ func JWTAuth() fiber.Handler {
 			})
 		}
 
+		// SIMPAN SEMUA CLAIMS DI SINI ⬇
+		c.Locals("user", claims)
+
 		// Simpan user_id, role_id ke context
 		c.Locals("user_id", claims["user_id"])
 		c.Locals("role", claims["role"])
