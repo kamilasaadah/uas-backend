@@ -7,9 +7,9 @@ import (
 func RequirePermission(permission string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
-		permissions := c.Locals("permissions")
+		raw := c.Locals("permissions")
 
-		if permissions == nil {
+		if raw == nil {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"code":    403,
 				"message": "Forbidden",
@@ -17,7 +17,21 @@ func RequirePermission(permission string) fiber.Handler {
 			})
 		}
 
-		permList := permissions.([]string)
+		rawList, ok := raw.([]interface{})
+		if !ok {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"code":    403,
+				"message": "Forbidden",
+				"error":   "Invalid permission format",
+			})
+		}
+
+		permList := make([]string, 0)
+		for _, v := range rawList {
+			if str, ok := v.(string); ok {
+				permList = append(permList, str)
+			}
+		}
 
 		// cek permission
 		for _, p := range permList {

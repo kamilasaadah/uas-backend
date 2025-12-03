@@ -9,8 +9,20 @@ import (
 )
 
 type UserRepository interface {
+
+	// AUTH / LOGIN
 	FindByUsernameOrEmail(ctx context.Context, username string) (*model.User, error)
 	GetUserPermissions(userID string) ([]string, error)
+
+	// ADMIN CRUD
+	CheckDuplicate(username, email string) error
+	CreateUser(ctx context.Context, user *model.User) error
+
+	UpdateUser(ctx context.Context, id string, req *model.UpdateUserRequest) error
+	AssignRole(ctx context.Context, id string, roleID string) error
+
+	UpsertStudentProfile(ctx context.Context, userID string, s *model.StudentProfileRequest) error
+	UpsertLecturerProfile(ctx context.Context, userID string, l *model.LecturerProfileRequest) error
 }
 
 type userRepository struct{}
@@ -77,4 +89,156 @@ func (r *userRepository) GetUserPermissions(userID string) ([]string, error) {
 	}
 
 	return perms, nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: CHECK DUPLICATE =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) CheckDuplicate(username, email string) error {
+	var exists bool
+
+	err := database.PG.QueryRow(
+		context.Background(),
+		`SELECT EXISTS(SELECT 1 FROM users WHERE username=$1 OR email=$2)`,
+		username, email,
+	).Scan(&exists)
+
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return errors.New("username or email already exists")
+	}
+
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: CREATE USER =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
+
+	query := `
+		INSERT INTO users (username, email, password_hash, full_name, role_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id;
+	`
+
+	return database.PG.QueryRow(ctx, query,
+		user.Username,
+		user.Email,
+		user.PasswordHash,
+		user.FullName,
+		user.RoleID,
+	).Scan(&user.ID)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: UPDATE USER =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) UpdateUser(ctx context.Context, id string, req *model.UpdateUserRequest) error {
+
+	_, err := database.PG.Exec(ctx,
+		`UPDATE users 
+		 SET username = COALESCE(NULLIF($1, ''), username),
+			 email = COALESCE(NULLIF($2, ''), email),
+			 full_name = COALESCE(NULLIF($3, ''), full_name),
+			 updated_at = NOW()
+		 WHERE id = $4`,
+		req.Username, req.Email, req.FullName, id,
+	)
+
+	return err
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: ASSIGN ROLE =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) AssignRole(ctx context.Context, id string, roleID string) error {
+
+	_, err := database.PG.Exec(ctx,
+		`UPDATE users SET role_id = $1 WHERE id = $2`,
+		roleID, id,
+	)
+
+	return err
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: UPSERT STUDENT PROFILE =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) UpsertStudentProfile(ctx context.Context, userID string, s *model.StudentProfileRequest) error {
+
+	// 1. cek apakah student profile sudah ada
+	var exists bool
+	err := database.PG.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM students WHERE user_id = $1)`,
+		userID,
+	).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	// 2. UPDATE jika sudah ada
+	if exists {
+		_, err := database.PG.Exec(ctx,
+			`UPDATE students 
+			 SET student_id=$1, program_study=$2, academic_year=$3, advisor_id=$4
+			 WHERE user_id=$5`,
+			s.StudentID, s.ProgramStudy, s.AcademicYear, s.AdvisorID, userID,
+		)
+		return err
+	}
+
+	// 3. INSERT jika belum ada
+	_, err = database.PG.Exec(ctx,
+		`INSERT INTO students (user_id, student_id, program_study, academic_year, advisor_id)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		userID, s.StudentID, s.ProgramStudy, s.AcademicYear, s.AdvisorID,
+	)
+
+	return err
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: UPSERT LECTURER PROFILE =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) UpsertLecturerProfile(ctx context.Context, userID string, l *model.LecturerProfileRequest) error {
+
+	// cek apakah lecturer profile sudah ada
+	var exists bool
+	err := database.PG.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM lecturers WHERE user_id=$1)`,
+		userID,
+	).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	// UPDATE jika sudah ada
+	if exists {
+		_, err := database.PG.Exec(ctx,
+			`UPDATE lecturers
+			 SET lecturer_id=$1, department=$2
+			 WHERE user_id=$3`,
+			l.LecturerID, l.Department, userID,
+		)
+		return err
+	}
+
+	// INSERT jika belum ada
+	_, err = database.PG.Exec(ctx,
+		`INSERT INTO lecturers (user_id, lecturer_id, department)
+		 VALUES ($1, $2, $3)`,
+		userID, l.LecturerID, l.Department,
+	)
+
+	return err
 }

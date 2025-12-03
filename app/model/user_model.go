@@ -27,3 +27,25 @@ type AuthUserResponse struct {
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
 }
+
+// ======================= USER REQUEST =======================
+type CreateUserRequest struct {
+	Username string `json:"username" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	FullName string `json:"full_name" validate:"required"`
+	Password string `json:"password" validate:"required"`
+	RoleID   string `json:"role_id" validate:"required"`
+}
+
+type UpdateUserRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	FullName string `json:"full_name"`
+
+	StudentProfile  *StudentProfileRequest  `json:"student_profile"`
+	LecturerProfile *LecturerProfileRequest `json:"lecturer_profile"`
+}
+
+type UpdateUserRoleRequest struct {
+	RoleID string `json:"role_id" validate:"required"`
+}

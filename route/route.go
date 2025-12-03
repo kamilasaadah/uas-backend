@@ -8,5 +8,6 @@ func SetupRoutes(app *fiber.App) {
 
 	// Auth
 	AuthRoutes(api.Group("/auth"))
+	AdminRoutes(api.Group("/"))
 
 }
