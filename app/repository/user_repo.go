@@ -168,12 +168,35 @@ func (r *userRepository) UpdateUser(ctx context.Context, id string, req *model.U
 
 func (r *userRepository) AssignRole(ctx context.Context, id string, roleID string) error {
 
-	_, err := database.PG.Exec(ctx,
-		`UPDATE users SET role_id = $1 WHERE id = $2`,
+	// 1. cek apakah role ID valid
+	var exists bool
+	err := r.db.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM roles WHERE id=$1)`,
+		roleID,
+	).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.New("role does not exist")
+	}
+
+	// 2. update user role, but ensure user exists
+	result, err := r.db.Exec(ctx,
+		`UPDATE users 
+         SET role_id = $1, updated_at = NOW()
+         WHERE id = $2`,
 		roleID, id,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if result.RowsAffected() == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////
