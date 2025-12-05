@@ -47,7 +47,7 @@ func (s *UserService) CreateUser(ctx context.Context, req model.CreateUserReques
 		Email:        req.Email,
 		FullName:     req.FullName,
 		PasswordHash: string(hashed),
-		RoleID:       req.RoleID,
+		RoleID:       "",
 		IsActive:     true,
 	}
 

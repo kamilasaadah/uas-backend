@@ -34,7 +34,6 @@ type CreateUserRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	FullName string `json:"full_name" validate:"required"`
 	Password string `json:"password" validate:"required"`
-	RoleID   string `json:"role_id" validate:"required"`
 }
 
 type UpdateUserRequest struct {
