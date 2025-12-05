@@ -13,5 +13,4 @@ type StudentProfileRequest struct {
 	StudentID    string `json:"student_id" validate:"required"`
 	ProgramStudy string `json:"program_study"`
 	AcademicYear string `json:"academic_year"`
-	AdvisorID    string `json:"advisor_id"` // lecturer UUID
 }

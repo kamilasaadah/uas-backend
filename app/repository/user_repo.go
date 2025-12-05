@@ -218,18 +218,18 @@ func (r *userRepository) UpsertStudentProfile(ctx context.Context, userID string
 	if exists {
 		_, err := database.PG.Exec(ctx,
 			`UPDATE students 
-			 SET student_id=$1, program_study=$2, academic_year=$3, advisor_id=$4
-			 WHERE user_id=$5`,
-			s.StudentID, s.ProgramStudy, s.AcademicYear, s.AdvisorID, userID,
+			 SET student_id=$1, program_study=$2, academic_year=$3
+			 WHERE user_id=$4`,
+			s.StudentID, s.ProgramStudy, s.AcademicYear, userID,
 		)
 		return err
 	}
 
 	// 3. INSERT jika belum ada
 	_, err = database.PG.Exec(ctx,
-		`INSERT INTO students (user_id, student_id, program_study, academic_year, advisor_id)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		userID, s.StudentID, s.ProgramStudy, s.AcademicYear, s.AdvisorID,
+		`INSERT INTO students (user_id, student_id, program_study, academic_year)
+		 VALUES ($1, $2, $3, $4)`,
+		userID, s.StudentID, s.ProgramStudy, s.AcademicYear,
 	)
 
 	return err
