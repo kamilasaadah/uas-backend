@@ -129,8 +129,8 @@ func (r *userRepository) CheckDuplicate(username, email string) error {
 func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
 
 	query := `
-		INSERT INTO users (username, email, password_hash, full_name, role_id)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO users (username, email, password_hash, full_name)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id;
 	`
 
@@ -139,7 +139,6 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 		user.Email,
 		user.PasswordHash,
 		user.FullName,
-		user.RoleID,
 	).Scan(&user.ID)
 }
 
