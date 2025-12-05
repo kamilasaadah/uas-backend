@@ -9,12 +9,13 @@ import (
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 	"uas-backend/app/service"
+	"uas-backend/database"
 	"uas-backend/middleware"
 )
 
 func AuthRoutes(r fiber.Router) {
 
-	userRepo := repository.NewUserRepository()
+	userRepo := repository.NewUserRepository(database.PG)
 	authService := service.NewAuthService(userRepo)
 
 	// ===========================

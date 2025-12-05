@@ -49,3 +49,16 @@ type UpdateUserRequest struct {
 type UpdateUserRoleRequest struct {
 	RoleID string `json:"role_id" validate:"required"`
 }
+
+type UserWithProfileResponse struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	FullName string `json:"full_name"`
+	RoleID   string `json:"role_id"`
+	RoleName string `json:"role_name"`
+	IsActive bool   `json:"is_active"`
+
+	Student  *Student  `json:"student_profile,omitempty"`
+	Lecturer *Lecturer `json:"lecturer_profile,omitempty"`
+}

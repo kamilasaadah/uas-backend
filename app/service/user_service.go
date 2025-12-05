@@ -11,11 +11,20 @@ import (
 )
 
 type UserService struct {
-	repo repository.UserRepository
+	repo         repository.UserRepository
+	studentRepo  repository.StudentRepository
+	lecturerRepo repository.LecturerRepository
 }
 
-func NewUserService(repo repository.UserRepository) *UserService {
-	return &UserService{repo}
+func NewUserService(
+	repo repository.UserRepository,
+	studentRepo repository.StudentRepository,
+	lecturerRepo repository.LecturerRepository,
+) *UserService {
+	return &UserService{
+		repo:         repo,
+		studentRepo:  studentRepo,
+		lecturerRepo: lecturerRepo}
 }
 
 func (s *UserService) CreateUser(ctx context.Context, req model.CreateUserRequest) (*model.User, error) {
@@ -88,4 +97,65 @@ func (s *UserService) AssignRole(ctx context.Context, id string, roleID string) 
 	}
 
 	return s.repo.AssignRole(ctx, id, roleID)
+}
+
+func (s *UserService) GetAllUsers(ctx context.Context) ([]*model.UserWithProfileResponse, error) {
+
+	users, err := s.repo.GetAllUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []*model.UserWithProfileResponse
+
+	for _, u := range users {
+
+		item := &model.UserWithProfileResponse{
+			ID:       u.ID,
+			Username: u.Username,
+			Email:    u.Email,
+			FullName: u.FullName,
+			RoleID:   u.RoleID,
+			RoleName: u.RoleName,
+			IsActive: u.IsActive,
+		}
+
+		// attach student profile
+		student, _ := s.studentRepo.GetStudentProfile(ctx, u.ID)
+		item.Student = student
+
+		// attach lecturer profile
+		lecturer, _ := s.lecturerRepo.GetLecturerProfile(ctx, u.ID)
+		item.Lecturer = lecturer
+
+		resp = append(resp, item)
+	}
+
+	return resp, nil
+}
+
+func (s *UserService) GetUserByID(ctx context.Context, id string) (*model.UserWithProfileResponse, error) {
+
+	u, err := s.repo.GetUserByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &model.UserWithProfileResponse{
+		ID:       u.ID,
+		Username: u.Username,
+		Email:    u.Email,
+		FullName: u.FullName,
+		RoleID:   u.RoleID,
+		RoleName: u.RoleName,
+		IsActive: u.IsActive,
+	}
+
+	student, _ := s.studentRepo.GetStudentProfile(ctx, id)
+	resp.Student = student
+
+	lecturer, _ := s.lecturerRepo.GetLecturerProfile(ctx, id)
+	resp.Lecturer = lecturer
+
+	return resp, nil
 }

@@ -6,6 +6,8 @@ import (
 
 	"uas-backend/app/model"
 	"uas-backend/database"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserRepository interface {
@@ -23,12 +25,17 @@ type UserRepository interface {
 
 	UpsertStudentProfile(ctx context.Context, userID string, s *model.StudentProfileRequest) error
 	UpsertLecturerProfile(ctx context.Context, userID string, l *model.LecturerProfileRequest) error
+
+	GetAllUsers(ctx context.Context) ([]*model.User, error)
+	GetUserByID(ctx context.Context, id string) (*model.User, error)
 }
 
-type userRepository struct{}
+type userRepository struct {
+	db *pgxpool.Pool
+}
 
-func NewUserRepository() UserRepository {
-	return &userRepository{}
+func NewUserRepository(db *pgxpool.Pool) UserRepository {
+	return &userRepository{db}
 }
 
 // ======================= GET USER BY USERNAME OR EMAIL =======================
@@ -241,4 +248,76 @@ func (r *userRepository) UpsertLecturerProfile(ctx context.Context, userID strin
 	)
 
 	return err
+}
+
+// /////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: GET ALL USERS =======================
+// /////////////////////////////////////////////////////////////////////////////
+func (r *userRepository) GetAllUsers(ctx context.Context) ([]*model.User, error) {
+	sql := `
+        SELECT u.id, u.username, u.email, u.full_name,
+               u.role_id, r.name AS role_name,
+               u.is_active
+        FROM users u
+        LEFT JOIN roles r ON r.id = u.role_id
+        ORDER BY u.created_at DESC
+    `
+	rows, err := r.db.Query(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*model.User
+
+	for rows.Next() {
+		u := &model.User{}
+		err := rows.Scan(
+			&u.ID,
+			&u.Username,
+			&u.Email,
+			&u.FullName,
+			&u.RoleID,
+			&u.RoleName,
+			&u.IsActive,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, u)
+	}
+
+	return users, nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: GET USER BY ID =======================
+///////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) GetUserByID(ctx context.Context, id string) (*model.User, error) {
+	sql := `
+        SELECT u.id, u.username, u.email, u.full_name,
+               u.role_id, r.name AS role_name,
+               u.is_active
+        FROM users u
+        LEFT JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1
+    `
+	u := &model.User{}
+
+	err := r.db.QueryRow(ctx, sql, id).Scan(
+		&u.ID,
+		&u.Username,
+		&u.Email,
+		&u.FullName,
+		&u.RoleID,
+		&u.RoleName,
+		&u.IsActive,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return u, nil
 }

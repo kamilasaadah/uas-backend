@@ -5,6 +5,7 @@ import (
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 	"uas-backend/app/service"
+	"uas-backend/database"
 	"uas-backend/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,8 +13,11 @@ import (
 
 func AdminRoutes(r fiber.Router) {
 
-	userRepo := repository.NewUserRepository()
-	userService := service.NewUserService(userRepo)
+	userRepo := repository.NewUserRepository(database.PG)
+	studentRepo := repository.NewStudentRepository(database.PG)
+	lecturerRepo := repository.NewLecturerRepository(database.PG)
+
+	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
 
 	admin := r.Group("/users",
 		middleware.JWTAuth(),                        // cek token
@@ -88,4 +92,26 @@ func AdminRoutes(r fiber.Router) {
 			"message": "role updated successfully",
 		})
 	})
+
+	// 4. GET ALL USERS (GET /users/)
+	admin.Get("/users", func(c *fiber.Ctx) error {
+		users, err := userService.GetAllUsers(context.Background())
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"message": "failed to get users"})
+		}
+		return c.JSON(fiber.Map{"data": users})
+	})
+
+	// 5. GET USERS BY ID (GET /users/:id)
+	admin.Get("/users/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+
+		user, err := userService.GetUserByID(context.Background(), id)
+		if err != nil {
+			return c.Status(404).JSON(fiber.Map{"message": "user not found"})
+		}
+
+		return c.JSON(fiber.Map{"data": user})
+	})
+
 }
