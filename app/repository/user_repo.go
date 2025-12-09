@@ -28,6 +28,9 @@ type UserRepository interface {
 
 	GetAllUsers(ctx context.Context) ([]*model.User, error)
 	GetUserByID(ctx context.Context, id string) (*model.User, error)
+
+	// DELETE (SOFT DELETE)
+	SoftDeleteUser(ctx context.Context, id string) error
 }
 
 type userRepository struct {
@@ -342,4 +345,26 @@ func (r *userRepository) GetUserByID(ctx context.Context, id string) (*model.Use
 	}
 
 	return u, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: ACTIVATE / DEACTIVATE USER ==================
+////////////////////////////////////////////////////////////////////////////////
+
+func (r *userRepository) SoftDeleteUser(ctx context.Context, id string) error {
+	result, err := r.db.Exec(ctx,
+		`UPDATE users 
+         SET is_active = false, updated_at = NOW()
+         WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
 }

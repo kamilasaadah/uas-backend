@@ -114,4 +114,20 @@ func AdminRoutes(r fiber.Router) {
 		return c.JSON(fiber.Map{"data": user})
 	})
 
+	// 6. DELETE USER (DELETE /users/:id)
+	admin.Delete("/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+
+		err := userService.DeleteUser(context.Background(), id)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"message": "user deleted (soft delete)",
+		})
+	})
+
 }

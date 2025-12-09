@@ -158,3 +158,11 @@ func (s *UserService) GetUserByID(ctx context.Context, id string) (*model.UserWi
 
 	return resp, nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// ======================= ADMIN: ACTIVATE / DEACTIVATE USER ==================
+////////////////////////////////////////////////////////////////////////////////
+
+func (s *UserService) DeleteUser(ctx context.Context, id string) error {
+	return s.repo.SoftDeleteUser(ctx, id)
+}
