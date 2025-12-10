@@ -2,89 +2,135 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 	"uas-backend/config"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
-type AuthService interface {
-	Login(ctx context.Context, req model.LoginRequest) (string, string, *model.AuthUserResponse, error)
+type AuthHttpHandler interface {
+	Login(c *fiber.Ctx) error
+	Profile(c *fiber.Ctx) error
 }
 
 type authService struct {
-	repo repository.UserRepository
+	userRepo repository.UserRepository
 }
 
-func NewAuthService(repo repository.UserRepository) AuthService {
-	return &authService{repo: repo}
+func NewAuthService(userRepo repository.UserRepository) AuthHttpHandler {
+	return &authService{
+		userRepo: userRepo,
+	}
 }
 
-func (s *authService) Login(ctx context.Context, req model.LoginRequest) (string, string, *model.AuthUserResponse, error) {
+///////////////////////////////////////////////////////////////////////////////
+// LOGIN HANDLER (BISNIS LOGIC + ERROR CODE DI DALAM SINI)
+///////////////////////////////////////////////////////////////////////////////
 
-	user, err := s.repo.FindByUsernameOrEmail(ctx, req.Username)
-	if err != nil {
-		return "", "", nil, errors.New("invalid credentials")
+func (s *authService) Login(c *fiber.Ctx) error {
+
+	var req model.LoginRequest
+	if err := c.BodyParser(&req); err != nil {
+		return s.error(c, 400, "Invalid input data")
 	}
 
+	// 1. FIND USER
+	user, err := s.userRepo.FindByUsernameOrEmail(context.Background(), req.Username)
+	if err != nil {
+		return s.error(c, 401, "invalid credentials")
+	}
+
+	// 2. CHECK ACTIVE
 	if !user.IsActive {
-		return "", "", nil, errors.New("account is not active")
+		return s.error(c, 403, "account is not active")
 	}
 
-	// check password
+	// 3. VERIFY PASSWORD
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return "", "", nil, errors.New("invalid credentials")
+		return s.error(c, 401, "invalid credentials")
 	}
 
-	// load permissions
-	perms, err := s.repo.GetUserPermissions(user.ID)
+	// 4. LOAD PERMISSIONS
+	perms, err := s.userRepo.GetUserPermissions(user.ID)
 	if err != nil {
-		return "", "", nil, errors.New("failed to load permissions")
+		return s.error(c, 500, "failed to load permissions")
 	}
 
-	// JWT payload
+	// 5. ACCESS TOKEN
 	claims := jwt.MapClaims{
 		"user_id":     user.ID,
 		"username":    user.Username,
+		"full_name":   user.FullName,
 		"role":        user.RoleName,
 		"role_id":     user.RoleID,
 		"permissions": perms,
-		"exp":         time.Now().Add(time.Hour * 2).Unix(),
+		"exp":         time.Now().Add(2 * time.Hour).Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtSecret := []byte(config.JWTSecret())
-
-	accessToken, err := token.SignedString(jwtSecret)
+	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
+		SignedString([]byte(config.JWTSecret()))
 	if err != nil {
-		return "", "", nil, errors.New("failed to sign token")
+		return s.error(c, 500, "failed to sign token")
 	}
 
-	// refresh token (optional)
+	// 6. REFRESH TOKEN
 	refreshClaims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}
-	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshToken, err := refresh.SignedString(jwtSecret)
 
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).
+		SignedString([]byte(config.JWTSecret()))
 	if err != nil {
-		return "", "", nil, errors.New("failed to sign refresh token")
+		return s.error(c, 500, "failed to sign refresh token")
 	}
 
-	resp := &model.AuthUserResponse{
-		ID:          user.ID,
-		Username:    user.Username,
-		FullName:    user.FullName,
-		Role:        user.RoleName,
-		Permissions: perms,
-	}
+	// 7. RESPONSE
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Login successful",
+		"data": fiber.Map{
+			"token":        accessToken,
+			"refreshToken": refreshToken,
+			"user": fiber.Map{
+				"id":          user.ID,
+				"username":    user.Username,
+				"full_name":   user.FullName,
+				"role":        user.RoleName,
+				"permissions": perms,
+			},
+		},
+	})
+}
 
-	return accessToken, refreshToken, resp, nil
+///////////////////////////////////////////////////////////////////////////////
+// PROFILE HANDLER
+///////////////////////////////////////////////////////////////////////////////
+
+func (s *authService) Profile(c *fiber.Ctx) error {
+
+	claims := c.Locals("user").(jwt.MapClaims)
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Profile fetched",
+		"data":    claims,
+	})
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ERROR HELPER (DIPANGGIL DI SERVICE)
+///////////////////////////////////////////////////////////////////////////////
+
+func (s *authService) error(c *fiber.Ctx, code int, msg string) error {
+	return c.Status(code).JSON(fiber.Map{
+		"code":    code,
+		"message": msg,
+		"error":   msg,
+	})
 }
