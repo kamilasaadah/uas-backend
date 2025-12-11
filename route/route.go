@@ -14,13 +14,15 @@ func SetupRoutes(app *fiber.App) {
 
 	// === INIT REPO ===
 	userRepo := repository.NewUserRepository(database.PG)
+	studentRepo := repository.NewStudentRepository(database.PG)
+	lecturerRepo := repository.NewLecturerRepository(database.PG)
 
 	// === INIT SERVICE ===
 	authService := service.NewAuthService(userRepo)
+	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
 
 	// ROUTES
 	AuthRoutes(api.Group("/auth"), authService)
-	// AuthRoutes(api.Group("/auth"))
-	AdminRoutes(api.Group("/"))
+	AdminRoutes(api, userService)
 
 }

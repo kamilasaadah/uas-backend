@@ -4,11 +4,21 @@ import (
 	"context"
 	"errors"
 
+	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 )
+
+type UserHttpHandler interface {
+	Create(c *fiber.Ctx) error
+	Update(c *fiber.Ctx) error
+	AssignRole(c *fiber.Ctx) error
+	GetAll(c *fiber.Ctx) error
+	GetByID(c *fiber.Ctx) error
+	Delete(c *fiber.Ctx) error
+}
 
 type UserService struct {
 	repo         repository.UserRepository
@@ -20,28 +30,29 @@ func NewUserService(
 	repo repository.UserRepository,
 	studentRepo repository.StudentRepository,
 	lecturerRepo repository.LecturerRepository,
-) *UserService {
+) UserHttpHandler {
 	return &UserService{
 		repo:         repo,
 		studentRepo:  studentRepo,
-		lecturerRepo: lecturerRepo}
+		lecturerRepo: lecturerRepo,
+	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// ======================= BUSINESS LOGIC =====================================
+////////////////////////////////////////////////////////////////////////////////
 
 func (s *UserService) CreateUser(ctx context.Context, req model.CreateUserRequest) (*model.User, error) {
 
-	// ================================
-	// 1. CHECK DUPLICATE USERNAME
-	// ================================
 	if err := s.repo.CheckDuplicate(req.Username, req.Email); err != nil {
 		return nil, err
 	}
-	// 2. HASH PASSWORD
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 3. CREATE USER OBJECT
 	user := &model.User{
 		Username:     req.Username,
 		Email:        req.Email,
@@ -50,7 +61,6 @@ func (s *UserService) CreateUser(ctx context.Context, req model.CreateUserReques
 		IsActive:     true,
 	}
 
-	// 4. SAVE USER (WITHOUT PROFILE)
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
@@ -58,25 +68,18 @@ func (s *UserService) CreateUser(ctx context.Context, req model.CreateUserReques
 	return user, nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// ======================= ADMIN: UPDATE USER (+ PROFILES) ====================
-////////////////////////////////////////////////////////////////////////////////
-
 func (s *UserService) UpdateUser(ctx context.Context, id string, req model.UpdateUserRequest) error {
 
-	// 1. UPDATE USER BASIC DATA
 	if err := s.repo.UpdateUser(ctx, id, &req); err != nil {
 		return err
 	}
 
-	// 2. UPSERT STUDENT PROFILE (optional)
 	if req.StudentProfile != nil {
 		if err := s.repo.UpsertStudentProfile(ctx, id, req.StudentProfile); err != nil {
 			return err
 		}
 	}
 
-	// 3. UPSERT LECTURER PROFILE (optional)
 	if req.LecturerProfile != nil {
 		if err := s.repo.UpsertLecturerProfile(ctx, id, req.LecturerProfile); err != nil {
 			return err
@@ -86,15 +89,10 @@ func (s *UserService) UpdateUser(ctx context.Context, id string, req model.Updat
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// ======================= ADMIN: ASSIGN ROLE ================================
-////////////////////////////////////////////////////////////////////////////////
-
-func (s *UserService) AssignRole(ctx context.Context, id string, roleID string) error {
+func (s *UserService) AssignRoleLogic(ctx context.Context, id string, roleID string) error {
 	if roleID == "" {
 		return errors.New("role_id required")
 	}
-
 	return s.repo.AssignRole(ctx, id, roleID)
 }
 
@@ -108,7 +106,6 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]*model.UserWithProfile
 	var resp []*model.UserWithProfileResponse
 
 	for _, u := range users {
-
 		item := &model.UserWithProfileResponse{
 			ID:       u.ID,
 			Username: u.Username,
@@ -119,13 +116,8 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]*model.UserWithProfile
 			IsActive: u.IsActive,
 		}
 
-		// attach student profile
-		student, _ := s.studentRepo.GetStudentProfile(ctx, u.ID)
-		item.Student = student
-
-		// attach lecturer profile
-		lecturer, _ := s.lecturerRepo.GetLecturerProfile(ctx, u.ID)
-		item.Lecturer = lecturer
+		item.Student, _ = s.studentRepo.GetStudentProfile(ctx, u.ID)
+		item.Lecturer, _ = s.lecturerRepo.GetLecturerProfile(ctx, u.ID)
 
 		resp = append(resp, item)
 	}
@@ -150,19 +142,88 @@ func (s *UserService) GetUserByID(ctx context.Context, id string) (*model.UserWi
 		IsActive: u.IsActive,
 	}
 
-	student, _ := s.studentRepo.GetStudentProfile(ctx, id)
-	resp.Student = student
-
-	lecturer, _ := s.lecturerRepo.GetLecturerProfile(ctx, id)
-	resp.Lecturer = lecturer
+	resp.Student, _ = s.studentRepo.GetStudentProfile(ctx, id)
+	resp.Lecturer, _ = s.lecturerRepo.GetLecturerProfile(ctx, id)
 
 	return resp, nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// ======================= ADMIN: ACTIVATE / DEACTIVATE USER ==================
-////////////////////////////////////////////////////////////////////////////////
-
 func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 	return s.repo.SoftDeleteUser(ctx, id)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ======================= FIBER HANDLER WRAPPER ===============================
+////////////////////////////////////////////////////////////////////////////////
+
+func (s *UserService) Create(c *fiber.Ctx) error {
+	var req model.CreateUserRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "invalid request"})
+	}
+
+	user, err := s.CreateUser(context.Background(), req)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "user created", "data": user})
+}
+
+func (s *UserService) Update(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var req model.UpdateUserRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "invalid request"})
+	}
+
+	if err := s.UpdateUser(context.Background(), id, req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "user updated"})
+}
+
+func (s *UserService) AssignRole(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var req model.UpdateUserRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "invalid request"})
+	}
+
+	if err := s.AssignRoleLogic(context.Background(), id, req.RoleID); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "role updated"})
+}
+
+func (s *UserService) GetAll(c *fiber.Ctx) error {
+	users, err := s.GetAllUsers(context.Background())
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "failed to get users"})
+	}
+
+	return c.JSON(fiber.Map{"data": users})
+}
+
+func (s *UserService) GetByID(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	user, err := s.GetUserByID(context.Background(), id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "not found"})
+	}
+
+	return c.JSON(fiber.Map{"data": user})
+}
+
+func (s *UserService) Delete(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	if err := s.DeleteUser(context.Background(), id); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "user deleted"})
 }
