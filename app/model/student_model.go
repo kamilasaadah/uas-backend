@@ -14,3 +14,7 @@ type StudentProfileRequest struct {
 	ProgramStudy string `json:"program_study"`
 	AcademicYear string `json:"academic_year"`
 }
+
+type SetAdvisorRequest struct {
+	AdvisorID string `json:"advisor_id" validate:"required"`
+}

@@ -9,6 +9,8 @@ import (
 
 type LecturerRepository interface {
 	GetLecturerProfile(ctx context.Context, userID string) (*model.Lecturer, error)
+	// GetAllLecturers(ctx context.Context) ([]*model.Lecturer, error)
+	GetLecturerByID(ctx context.Context, lecturerID string) (*model.Lecturer, error)
 }
 
 type lecturerRepository struct {
@@ -28,6 +30,24 @@ func (r *lecturerRepository) GetLecturerProfile(ctx context.Context, userID stri
 	l := &model.Lecturer{}
 
 	err := r.db.QueryRow(ctx, sql, userID).Scan(
+		&l.ID, &l.UserID, &l.LecturerID, &l.Department,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return l, nil
+}
+
+func (r *lecturerRepository) GetLecturerByID(ctx context.Context, lecturerID string) (*model.Lecturer, error) {
+	query := `
+        SELECT id, user_id, lecturer_id, department
+        FROM lecturers
+        WHERE id = $1
+    `
+
+	l := &model.Lecturer{}
+	err := r.db.QueryRow(ctx, query, lecturerID).Scan(
 		&l.ID, &l.UserID, &l.LecturerID, &l.Department,
 	)
 	if err != nil {

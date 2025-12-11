@@ -9,6 +9,7 @@ import (
 
 type StudentRepository interface {
 	GetStudentProfile(ctx context.Context, userID string) (*model.Student, error)
+	UpdateAdvisor(ctx context.Context, studentID string, advisorID string) error
 }
 
 type studentRepository struct {
@@ -34,4 +35,14 @@ func (r *studentRepository) GetStudentProfile(ctx context.Context, userID string
 		return nil, err
 	}
 	return s, nil
+}
+
+func (r *studentRepository) UpdateAdvisor(ctx context.Context, studentID string, advisorID string) error {
+	query := `
+        UPDATE students 
+        SET advisor_id = $1 
+        WHERE id = $2
+    `
+	_, err := r.db.Exec(ctx, query, advisorID, studentID)
+	return err
 }
