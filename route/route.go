@@ -21,9 +21,13 @@ func SetupRoutes(app *fiber.App) {
 	authService := service.NewAuthService(userRepo)
 	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
 	studentSvc := service.NewStudentService(studentRepo, lecturerRepo)
+	lecturerSvc := service.NewLecturerService(lecturerRepo, studentRepo)
+
 
 	// ROUTES
 	AuthRoutes(api.Group("/auth"), authService)
 	AdminRoutes(api, userService)
 	StudentRoutes(api, studentSvc)
+	LecturerRoutes(api, lecturerSvc)
+
 }

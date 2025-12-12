@@ -9,7 +9,7 @@ import (
 
 type LecturerRepository interface {
 	GetLecturerProfile(ctx context.Context, userID string) (*model.Lecturer, error)
-	// GetAllLecturers(ctx context.Context) ([]*model.Lecturer, error)
+	GetAllLecturers(ctx context.Context) ([]*model.Lecturer, error)
 	GetLecturerByID(ctx context.Context, lecturerID string) (*model.Lecturer, error)
 }
 
@@ -55,4 +55,30 @@ func (r *lecturerRepository) GetLecturerByID(ctx context.Context, lecturerID str
 	}
 
 	return l, nil
+}
+
+func (r *lecturerRepository) GetAllLecturers(ctx context.Context) ([]*model.Lecturer, error) {
+	query := `
+        SELECT id, user_id, lecturer_id, department
+        FROM lecturers
+    `
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lecturers []*model.Lecturer
+
+	for rows.Next() {
+		l := &model.Lecturer{}
+		if err := rows.Scan(
+			&l.ID, &l.UserID, &l.LecturerID, &l.Department,
+		); err != nil {
+			return nil, err
+		}
+		lecturers = append(lecturers, l)
+	}
+
+	return lecturers, nil
 }
