@@ -17,20 +17,26 @@ func RequirePermission(permission string) fiber.Handler {
 			})
 		}
 
-		rawList, ok := raw.([]interface{})
-		if !ok {
+		var permList []string
+
+		// CASE 1: []string (JWTClaims)
+		if list, ok := raw.([]string); ok {
+			permList = list
+		} else
+
+		// CASE 2: []interface{} (kalau dari MapClaims)
+		if rawList, ok := raw.([]interface{}); ok {
+			for _, v := range rawList {
+				if str, ok := v.(string); ok {
+					permList = append(permList, str)
+				}
+			}
+		} else {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"code":    403,
 				"message": "Forbidden",
 				"error":   "Invalid permission format",
 			})
-		}
-
-		permList := make([]string, 0)
-		for _, v := range rawList {
-			if str, ok := v.(string); ok {
-				permList = append(permList, str)
-			}
 		}
 
 		// cek permission

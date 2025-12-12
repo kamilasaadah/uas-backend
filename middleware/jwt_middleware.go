@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"strings"
+	"uas-backend/app/model"
 	"uas-backend/config"
 
 	"github.com/gofiber/fiber/v2"
@@ -32,7 +33,8 @@ func JWTAuth() fiber.Handler {
 		}
 
 		// Parse token
-		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+		claims := &model.JWTClaims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 			return []byte(config.JWTSecret()), nil
 		})
 
@@ -44,22 +46,13 @@ func JWTAuth() fiber.Handler {
 			})
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"code":    401,
-				"message": "Unauthorized",
-				"error":   "Invalid token claims",
-			})
-		}
-
 		// SIMPAN SEMUA CLAIMS DI SINI ⬇
 		c.Locals("user", claims)
 
 		// Simpan user_id, role_id ke context
-		c.Locals("user_id", claims["user_id"])
-		c.Locals("role", claims["role"])
-		c.Locals("permissions", claims["permissions"])
+		c.Locals("user_id", claims.UserID)
+		c.Locals("role", claims.Role)
+		c.Locals("permissions", claims.Permissions)
 
 		return c.Next()
 	}

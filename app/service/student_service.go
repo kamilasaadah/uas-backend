@@ -45,3 +45,35 @@ func (s *StudentService) SetAdvisor(c *fiber.Ctx) error {
 		"message": "advisor updated successfully",
 	})
 }
+
+func (s *StudentService) GetAllStudents(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+
+	if claims.Role != "Admin" {
+		return fiber.NewError(fiber.StatusForbidden, "forbidden")
+	}
+
+	students, err := s.studentRepo.GetAllStudents(c.Context())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch students")
+	}
+
+	return c.JSON(students)
+}
+
+func (s *StudentService) GetStudentByID(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+
+	if claims.Role != "Admin" {
+		return fiber.NewError(fiber.StatusForbidden, "forbidden")
+	}
+
+	studentID := c.Params("id")
+
+	student, err := s.studentRepo.GetStudentByID(c.Context(), studentID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "student not found")
+	}
+
+	return c.JSON(student)
+}

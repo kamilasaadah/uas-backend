@@ -15,5 +15,8 @@ func StudentRoutes(r fiber.Router, studentSvc *service.StudentService) {
 	)
 
 	// PUT /api/v1/students/:id/advisor  (Admin only)
+	admin.Get("/", studentSvc.GetAllStudents)
+	admin.Get("/:id", studentSvc.GetStudentByID)
 	admin.Put("/:id/advisor", studentSvc.SetAdvisor)
+
 }
