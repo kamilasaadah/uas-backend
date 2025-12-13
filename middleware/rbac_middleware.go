@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -9,7 +11,12 @@ func RequirePermission(permission string) fiber.Handler {
 
 		raw := c.Locals("permissions")
 
+		fmt.Println("=== DEBUG PERMISSION ===")
+		fmt.Println("REQUIRED :", permission)
+		fmt.Printf("RAW      : %#v\n", raw)
+
 		if raw == nil {
+			fmt.Println("❌ permissions NIL")
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"code":    403,
 				"message": "Forbidden",
@@ -39,17 +46,46 @@ func RequirePermission(permission string) fiber.Handler {
 			})
 		}
 
+		fmt.Println("PERM LIST:", permList)
+
 		// cek permission
 		for _, p := range permList {
 			if p == permission {
+				fmt.Println("✅ PERMISSION MATCH")
 				return c.Next()
 			}
 		}
+
+		fmt.Println("❌ NO MATCH")
 
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"code":    403,
 			"message": "Forbidden",
 			"error":   "Insufficient permissions",
 		})
+	}
+}
+
+func RequireAnyPermission(perms ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		raw := c.Locals("permissions")
+		if raw == nil {
+			return fiber.ErrForbidden
+		}
+
+		var userPerms []string
+		if p, ok := raw.([]string); ok {
+			userPerms = p
+		}
+
+		for _, up := range userPerms {
+			for _, rp := range perms {
+				if up == rp {
+					return c.Next()
+				}
+			}
+		}
+
+		return fiber.ErrForbidden
 	}
 }
