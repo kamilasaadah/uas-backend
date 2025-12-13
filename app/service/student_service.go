@@ -49,13 +49,30 @@ func (s *StudentService) SetAdvisor(c *fiber.Ctx) error {
 func (s *StudentService) GetAllStudents(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
-	if claims.Role != "Admin" {
-		return fiber.NewError(fiber.StatusForbidden, "forbidden")
+	// 🔐 ADMIN → semua mahasiswa
+	if claims.Role == "Admin" {
+		students, err := s.studentRepo.GetAllStudents(c.Context())
+		if err != nil {
+			return fiber.NewError(500, "failed to fetch students")
+		}
+		return c.JSON(students)
 	}
 
-	students, err := s.studentRepo.GetAllStudents(c.Context())
+	// 👨‍🏫 DOSEN → anak wali saja
+	lecturer, err := s.lecturerRepo.GetLecturerProfile(
+		c.Context(),
+		claims.UserID,
+	)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch students")
+		return fiber.NewError(403, "lecturer profile not found")
+	}
+
+	students, err := s.studentRepo.GetStudentsByAdvisor(
+		c.Context(),
+		lecturer.ID, // 🔥 STRING UUID
+	)
+	if err != nil {
+		return fiber.NewError(500, "failed to fetch students")
 	}
 
 	return c.JSON(students)
@@ -63,16 +80,33 @@ func (s *StudentService) GetAllStudents(c *fiber.Ctx) error {
 
 func (s *StudentService) GetStudentByID(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
+	studentID := c.Params("id")
 
-	if claims.Role != "Admin" {
-		return fiber.NewError(fiber.StatusForbidden, "forbidden")
+	// 🔐 ADMIN → bebas
+	if claims.Role == "Admin" {
+		student, err := s.studentRepo.GetStudentByID(c.Context(), studentID)
+		if err != nil {
+			return fiber.NewError(404, "student not found")
+		}
+		return c.JSON(student)
 	}
 
-	studentID := c.Params("id")
+	// 👨‍🏫 DOSEN → validasi anak wali
+	lecturer, err := s.lecturerRepo.GetLecturerProfile(
+		c.Context(),
+		claims.UserID,
+	)
+	if err != nil {
+		return fiber.NewError(403, "lecturer profile not found")
+	}
 
 	student, err := s.studentRepo.GetStudentByID(c.Context(), studentID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "student not found")
+		return fiber.NewError(404, "student not found")
+	}
+
+	if student.AdvisorID != lecturer.ID {
+		return fiber.NewError(403, "not your advisee")
 	}
 
 	return c.JSON(student)
