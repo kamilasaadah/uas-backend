@@ -10,6 +10,7 @@ import (
 type AchievementReferenceRepository interface {
 	CreateDraft(ctx context.Context, studentID, mongoID string) error
 	GetByAchievementID(ctx context.Context, achievementID string) (*model.AchievementReference, error)
+	MarkDeleted(ctx context.Context, achievementID string) error
 }
 
 type achievementReferenceRepository struct {
@@ -69,4 +70,14 @@ func (r *achievementReferenceRepository) GetByAchievementID(
 	}
 
 	return &ref, nil
+}
+
+func (r *achievementReferenceRepository) MarkDeleted(ctx context.Context, achievementID string) error {
+	query := `
+		UPDATE achievement_references
+		SET status = 'deleted', updated_at = NOW()
+		WHERE mongo_achievement_id = $1
+	`
+	_, err := r.db.Exec(ctx, query, achievementID)
+	return err
 }

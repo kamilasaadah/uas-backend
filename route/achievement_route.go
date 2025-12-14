@@ -37,4 +37,10 @@ func AchievementRoutes(
 		achievementSvc.UpdateAchievement,
 	)
 
+	api.Delete(
+		"/:id",
+		// mahasiswa & admin boleh, permission bebas
+		achievementSvc.DeleteAchievement,
+	)
+
 }

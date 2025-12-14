@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"uas-backend/app/model"
 
@@ -16,6 +17,7 @@ type AchievementRepository interface {
 	GetByID(ctx context.Context, id primitive.ObjectID) (*model.Achievement, error)
 	AddAttachment(ctx context.Context, id primitive.ObjectID, att model.Attachment) error
 	Update(ctx context.Context, a *model.Achievement) error
+	SoftDelete(ctx context.Context, id primitive.ObjectID) error
 }
 
 type achievementRepository struct {
@@ -79,6 +81,21 @@ func (r *achievementRepository) Update(ctx context.Context, a *model.Achievement
 		bson.M{"_id": a.ID},
 		bson.M{
 			"$set": a,
+		},
+	)
+	return err
+}
+
+func (r *achievementRepository) SoftDelete(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{
+			"$set": bson.M{
+				"is_deleted": true,
+				"status":     "deleted",
+				"updatedAt":  time.Now(),
+			},
 		},
 	)
 	return err

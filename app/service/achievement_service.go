@@ -270,3 +270,51 @@ func (s *AchievementService) UpdateAchievement(c *fiber.Ctx) error {
 		"data":    achievement,
 	})
 }
+
+func (s *AchievementService) DeleteAchievement(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// parse ObjectID
+	objID, err := primitive.ObjectIDFromHex(achievementID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid achievement id")
+	}
+
+	// 1️⃣ cek reference di PostgreSQL
+	ref, err := s.referenceRepo.GetByAchievementID(c.Context(), achievementID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	// hanya draft yang bisa dihapus
+	if ref.Status != "draft" {
+		return fiber.NewError(fiber.StatusBadRequest, "only draft achievements can be deleted")
+	}
+
+	// 2️⃣ cek authorization
+	switch claims.Role {
+	case "Mahasiswa":
+		if claims.StudentID == "" || ref.StudentID != claims.StudentID {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	case "Admin":
+		// admin bisa delete semua
+	default:
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+
+	// 3️⃣ soft delete MongoDB
+	if err := s.achievementRepo.SoftDelete(c.Context(), objID); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to soft delete achievement")
+	}
+
+	// 4️⃣ update PostgreSQL reference
+	if err := s.referenceRepo.MarkDeleted(c.Context(), achievementID); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to update achievement reference")
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "achievement deleted",
+	})
+}
