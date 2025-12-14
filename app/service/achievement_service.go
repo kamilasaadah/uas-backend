@@ -1,12 +1,14 @@
 package service
 
 import (
+	"os"
 	"time"
 
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 /* =======================
@@ -108,5 +110,81 @@ func (s *AchievementService) CreateAchievement(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "achievement created",
 		"data":    achievement,
+	})
+}
+
+func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// 1️⃣ cek reference (PostgreSQL)
+	ref, err := s.referenceRepo.GetByAchievementID(
+		c.Context(),
+		achievementID,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	if ref.Status != "draft" {
+		return fiber.NewError(
+			fiber.StatusBadRequest,
+			"attachments only allowed for draft achievement",
+		)
+	}
+
+	// 2️⃣ auth
+	if claims.Role == "Mahasiswa" {
+
+		// pastikan student_id ada di JWT
+		if claims.StudentID == "" {
+			return fiber.NewError(fiber.StatusForbidden, "student id missing")
+		}
+
+		// bandingkan STUDENT ID vs STUDENT ID
+		if ref.StudentID != claims.StudentID {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	}
+
+	// 3️⃣ ambil file
+	file, err := c.FormFile("file")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "file is required")
+	}
+
+	// ✅ pastikan folder uploads ada
+	_ = os.MkdirAll("./uploads", 0755)
+
+	// 4️⃣ simpan file
+	fileURL := "/uploads/" + file.Filename
+	if err := c.SaveFile(file, "."+fileURL); err != nil {
+		return fiber.NewError(500, "failed to save file")
+	}
+
+	// 5️⃣ parse ObjectID (PAKAI YANG ATAS)
+	objID, err := primitive.ObjectIDFromHex(achievementID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid achievement id")
+	}
+
+	attachment := model.Attachment{
+		FileName:   file.Filename,
+		FileURL:    fileURL,
+		FileType:   file.Header.Get("Content-Type"),
+		UploadedAt: time.Now(),
+	}
+
+	if err := s.achievementRepo.AddAttachment(
+		c.Context(),
+		objID,
+		attachment,
+	); err != nil {
+		return fiber.NewError(500, "failed to save attachment")
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "attachment uploaded",
+		"data":    attachment,
 	})
 }
