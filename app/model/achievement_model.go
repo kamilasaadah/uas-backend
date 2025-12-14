@@ -16,6 +16,7 @@ type Achievement struct {
 	Attachments     []Attachment       `bson:"attachments" json:"attachments"`
 	Tags            []string           `bson:"tags" json:"tags"`
 	Points          int                `bson:"points" json:"points"`
+	Status          string             `bson:"status" json:"status"`
 	CreatedAt       time.Time          `bson:"createdAt" json:"created_at"`
 	UpdatedAt       time.Time          `bson:"updatedAt" json:"updated_at"`
 }

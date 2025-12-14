@@ -6,12 +6,15 @@ import (
 
 	"uas-backend/app/model"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AchievementRepository interface {
 	Create(ctx context.Context, a *model.Achievement) (primitive.ObjectID, error)
+	GetByID(ctx context.Context, id primitive.ObjectID) (*model.Achievement, error)
+	AddAttachment(ctx context.Context, id primitive.ObjectID, att model.Attachment) error
 }
 
 type achievementRepository struct {
@@ -37,4 +40,34 @@ func (r *achievementRepository) Create(ctx context.Context, a *model.Achievement
 
 	a.ID = oid
 	return oid, nil
+}
+
+func (r *achievementRepository) GetByID(
+	ctx context.Context,
+	id primitive.ObjectID,
+) (*model.Achievement, error) {
+
+	var achievement model.Achievement
+	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&achievement)
+	if err != nil {
+		return nil, err
+	}
+	return &achievement, nil
+}
+
+func (r *achievementRepository) AddAttachment(
+	ctx context.Context,
+	id primitive.ObjectID,
+	att model.Attachment,
+) error {
+
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{
+			"$push": bson.M{"attachments": att},
+			"$set":  bson.M{"updatedAt": att.UploadedAt},
+		},
+	)
+	return err
 }

@@ -17,8 +17,17 @@ func AchievementRoutes(
 	api := r.Group(
 		"/achievements",
 		middleware.JWTAuth(userRepo),
-		middleware.RequirePermission("achievement:create"),
 	)
 
-	api.Post("/", achievementSvc.CreateAchievement)
+	api.Post(
+		"/",
+		middleware.RequirePermission("achievement:create"),
+		achievementSvc.CreateAchievement,
+	)
+
+	api.Post(
+		"/:id/attachments",
+		middleware.RequirePermission("achievement:update"),
+		achievementSvc.UploadAttachment,
+	)
 }
