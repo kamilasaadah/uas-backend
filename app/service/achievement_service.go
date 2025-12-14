@@ -91,7 +91,8 @@ func (s *AchievementService) CreateAchievement(c *fiber.Ctx) error {
 	}
 
 	// 1️⃣ MongoDB
-	if err := s.achievementRepo.Create(c.Context(), achievement); err != nil {
+	oid, err := s.achievementRepo.Create(c.Context(), achievement)
+	if err != nil {
 		return fiber.NewError(500, "failed to create achievement")
 	}
 
@@ -99,7 +100,7 @@ func (s *AchievementService) CreateAchievement(c *fiber.Ctx) error {
 	if err := s.referenceRepo.CreateDraft(
 		c.Context(),
 		studentID, // ✅ FIX
-		achievement.ID.Hex(),
+		oid.Hex(),
 	); err != nil {
 		return fiber.NewError(500, "failed to create achievement reference")
 	}
