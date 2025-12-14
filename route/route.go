@@ -20,7 +20,7 @@ func SetupRoutes(app *fiber.App) {
 	achievementRefRepo := repository.NewAchievementReferenceRepository(database.PG)
 
 	// === INIT SERVICE ===
-	authService := service.NewAuthService(userRepo)
+	authService := service.NewAuthService(userRepo, studentRepo)
 	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
 	studentSvc := service.NewStudentService(studentRepo, lecturerRepo)
 	lecturerSvc := service.NewLecturerService(lecturerRepo, studentRepo)

@@ -19,12 +19,17 @@ type AuthHttpHandler interface {
 }
 
 type authService struct {
-	userRepo repository.UserRepository
+	userRepo    repository.UserRepository
+	studentRepo repository.StudentRepository
 }
 
-func NewAuthService(userRepo repository.UserRepository) AuthHttpHandler {
+func NewAuthService(
+	userRepo repository.UserRepository,
+	studentRepo repository.StudentRepository,
+) AuthHttpHandler {
 	return &authService{
-		userRepo: userRepo,
+		userRepo:    userRepo,
+		studentRepo: studentRepo,
 	}
 }
 
@@ -70,6 +75,17 @@ func (s *authService) Login(c *fiber.Ctx) error {
 		"role_id":     user.RoleID,
 		"permissions": perms,
 		"exp":         time.Now().Add(2 * time.Hour).Unix(),
+	}
+
+	if user.RoleName == "Mahasiswa" {
+		student, err := s.studentRepo.GetStudentProfile(
+			context.Background(),
+			user.ID,
+		)
+		if err != nil {
+			return s.error(c, 403, "student profile not found")
+		}
+		claims["student_id"] = student.ID
 	}
 
 	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
