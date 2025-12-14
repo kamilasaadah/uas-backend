@@ -114,7 +114,7 @@ func (s *authService) Login(c *fiber.Ctx) error {
 
 func (s *authService) Profile(c *fiber.Ctx) error {
 
-	claims := c.Locals("user").(jwt.MapClaims)
+	claims := c.Locals("user").(*model.JWTClaims)
 
 	return c.JSON(fiber.Map{
 		"code":    200,
