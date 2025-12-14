@@ -16,15 +16,12 @@ func StudentRoutes(
 
 	api := r.Group("/students", middleware.JWTAuth(userRepo))
 
-	// Admin OR Dosen wali read access
-	read := api.Group("/",
-		middleware.RequireAnyPermission(
-			"student:read",
-			"user:manage",
-		),
+	// Only Admin can read
+	adminRead := api.Group("/",
+		middleware.RequirePermission("user:manage"),
 	)
-	read.Get("/", studentSvc.GetAllStudents)
-	read.Get("/:id", studentSvc.GetStudentByID)
+	adminRead.Get("/", studentSvc.GetAllStudents)
+	adminRead.Get("/:id", studentSvc.GetStudentByID)
 
 	// Admin full access
 	admin := api.Group("/",

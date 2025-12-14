@@ -49,32 +49,14 @@ func (s *StudentService) SetAdvisor(c *fiber.Ctx) error {
 func (s *StudentService) GetAllStudents(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
-	// 🔐 ADMIN → semua mahasiswa
-	if claims.Role == "Admin" {
-		students, err := s.studentRepo.GetAllStudents(c.Context())
-		if err != nil {
-			return fiber.NewError(500, "failed to fetch students")
-		}
-		return c.JSON(students)
+	if claims.Role != "Admin" {
+		return fiber.NewError(403, "forbidden")
 	}
 
-	// 👨‍🏫 DOSEN → anak wali saja
-	lecturer, err := s.lecturerRepo.GetLecturerProfile(
-		c.Context(),
-		claims.UserID,
-	)
-	if err != nil {
-		return fiber.NewError(403, "lecturer profile not found")
-	}
-
-	students, err := s.studentRepo.GetStudentsByAdvisor(
-		c.Context(),
-		lecturer.ID, // 🔥 STRING UUID
-	)
+	students, err := s.studentRepo.GetAllStudents(c.Context())
 	if err != nil {
 		return fiber.NewError(500, "failed to fetch students")
 	}
-
 	return c.JSON(students)
 }
 
@@ -82,32 +64,13 @@ func (s *StudentService) GetStudentByID(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	studentID := c.Params("id")
 
-	// 🔐 ADMIN → bebas
-	if claims.Role == "Admin" {
-		student, err := s.studentRepo.GetStudentByID(c.Context(), studentID)
-		if err != nil {
-			return fiber.NewError(404, "student not found")
-		}
-		return c.JSON(student)
-	}
-
-	// 👨‍🏫 DOSEN → validasi anak wali
-	lecturer, err := s.lecturerRepo.GetLecturerProfile(
-		c.Context(),
-		claims.UserID,
-	)
-	if err != nil {
-		return fiber.NewError(403, "lecturer profile not found")
+	if claims.Role != "Admin" {
+		return fiber.NewError(403, "forbidden")
 	}
 
 	student, err := s.studentRepo.GetStudentByID(c.Context(), studentID)
 	if err != nil {
 		return fiber.NewError(404, "student not found")
 	}
-
-	if student.AdvisorID != lecturer.ID {
-		return fiber.NewError(403, "not your advisee")
-	}
-
 	return c.JSON(student)
 }
