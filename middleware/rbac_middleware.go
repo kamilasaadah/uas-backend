@@ -74,8 +74,17 @@ func RequireAnyPermission(perms ...string) fiber.Handler {
 		}
 
 		var userPerms []string
-		if p, ok := raw.([]string); ok {
+		switch p := raw.(type) {
+		case []string:
 			userPerms = p
+		case []interface{}:
+			for _, x := range p {
+				if s, ok := x.(string); ok {
+					userPerms = append(userPerms, s)
+				}
+			}
+		default:
+			return fiber.ErrForbidden
 		}
 
 		for _, up := range userPerms {

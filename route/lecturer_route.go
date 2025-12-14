@@ -14,17 +14,10 @@ func LecturerRoutes(
 	userRepo repository.UserRepository,
 ) {
 
-	api := r.Group("/lecturers",
-		middleware.JWTAuth(userRepo),
-	)
-
-	read := api.Group("/",
-		middleware.RequireAnyPermission(
-			"student:read", // dosen
-			"user:manage",  // admin
-		),
-	)
-	read.Get("/:id/advisees", lecturerSvc.GetAdvisees)
+	api := r.Group("/lecturers", middleware.JWTAuth(userRepo))
+	api.Get("/:id/advisees", middleware.RequireAnyPermission(
+		"achievement:read", "achievement:verify", "user:manage",
+	), lecturerSvc.GetAdvisees)
 
 	admin := api.Group("/",
 		middleware.RequirePermission("user:manage"),
