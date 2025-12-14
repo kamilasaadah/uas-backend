@@ -15,6 +15,7 @@ type AchievementRepository interface {
 	Create(ctx context.Context, a *model.Achievement) (primitive.ObjectID, error)
 	GetByID(ctx context.Context, id primitive.ObjectID) (*model.Achievement, error)
 	AddAttachment(ctx context.Context, id primitive.ObjectID, att model.Attachment) error
+	Update(ctx context.Context, a *model.Achievement) error
 }
 
 type achievementRepository struct {
@@ -67,6 +68,17 @@ func (r *achievementRepository) AddAttachment(
 		bson.M{
 			"$push": bson.M{"attachments": att},
 			"$set":  bson.M{"updatedAt": att.UploadedAt},
+		},
+	)
+	return err
+}
+
+func (r *achievementRepository) Update(ctx context.Context, a *model.Achievement) error {
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": a.ID},
+		bson.M{
+			"$set": a,
 		},
 	)
 	return err

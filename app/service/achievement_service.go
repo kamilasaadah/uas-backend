@@ -25,6 +25,20 @@ type CreateAchievementRequest struct {
 	Points          int            `json:"points"`
 }
 
+/*
+	=======================
+	  UPDATE REQUEST DTO
+
+=======================
+*/
+type UpdateAchievementRequest struct {
+	Title       *string        `json:"title"`
+	Description *string        `json:"description"`
+	Details     map[string]any `json:"details"`
+	Tags        []string       `json:"tags"`
+	Points      *int           `json:"points"`
+}
+
 type AchievementService struct {
 	achievementRepo repository.AchievementRepository
 	referenceRepo   repository.AchievementReferenceRepository
@@ -186,5 +200,73 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "attachment uploaded",
 		"data":    attachment,
+	})
+}
+
+func (s *AchievementService) UpdateAchievement(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// parse ObjectID
+	objID, err := primitive.ObjectIDFromHex(achievementID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid achievement id")
+	}
+
+	// 1️⃣ cek reference di PostgreSQL
+	ref, err := s.referenceRepo.GetByAchievementID(c.Context(), achievementID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	if ref.Status != "draft" {
+		return fiber.NewError(fiber.StatusBadRequest, "only draft achievements can be updated")
+	}
+
+	// 2️⃣ cek authorization
+	if claims.Role == "Mahasiswa" {
+		if claims.StudentID == "" || ref.StudentID != claims.StudentID {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	}
+
+	// 3️⃣ parse request
+	var req UpdateAchievementRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	// 4️⃣ ambil achievement dari MongoDB
+	achievement, err := s.achievementRepo.GetByID(c.Context(), objID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement not found")
+	}
+
+	// 5️⃣ update fields
+	if req.Title != nil {
+		achievement.Title = *req.Title
+	}
+	if req.Description != nil {
+		achievement.Description = *req.Description
+	}
+	if req.Details != nil {
+		achievement.Details = req.Details
+	}
+	if req.Tags != nil {
+		achievement.Tags = req.Tags
+	}
+	if req.Points != nil {
+		achievement.Points = *req.Points
+	}
+	achievement.UpdatedAt = time.Now()
+
+	// 6️⃣ simpan perubahan
+	if err := s.achievementRepo.Update(c.Context(), achievement); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to update achievement")
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "achievement updated",
+		"data":    achievement,
 	})
 }

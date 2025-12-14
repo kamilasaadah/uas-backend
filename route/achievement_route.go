@@ -30,4 +30,11 @@ func AchievementRoutes(
 		middleware.RequirePermission("achievement:update"),
 		achievementSvc.UploadAttachment,
 	)
+
+	api.Put(
+		"/:id",
+		middleware.RequirePermission("achievement:update"),
+		achievementSvc.UpdateAchievement,
+	)
+
 }
