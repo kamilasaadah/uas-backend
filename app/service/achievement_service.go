@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -43,17 +44,20 @@ type AchievementService struct {
 	achievementRepo repository.AchievementRepository
 	referenceRepo   repository.AchievementReferenceRepository
 	studentRepo     repository.StudentRepository
+	lecturerRepo    repository.LecturerRepository
 }
 
 func NewAchievementService(
 	achievementRepo repository.AchievementRepository,
 	referenceRepo repository.AchievementReferenceRepository,
-	studentRepo repository.StudentRepository, // ✅ TAMBAH
+	studentRepo repository.StudentRepository,
+	lecturerRepo repository.LecturerRepository,
 ) *AchievementService {
 	return &AchievementService{
 		achievementRepo: achievementRepo,
 		referenceRepo:   referenceRepo,
 		studentRepo:     studentRepo,
+		lecturerRepo:    lecturerRepo,
 	}
 }
 
@@ -317,4 +321,185 @@ func (s *AchievementService) DeleteAchievement(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "achievement deleted",
 	})
+}
+
+func (s *AchievementService) GetAchievements(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+
+	fmt.Println("\n================ ACHIEVEMENT DEBUG ================")
+	fmt.Println("ROLE        :", claims.Role)
+	fmt.Println("USER ID     :", claims.UserID)
+
+	switch claims.Role {
+
+	// =====================
+	// MAHASISWA
+	// =====================
+	case "Mahasiswa":
+		fmt.Println(">> FLOW: MAHASISWA")
+
+		student, err := s.studentRepo.GetStudentProfile(
+			c.Context(),
+			claims.UserID,
+		)
+		if err != nil {
+			fmt.Println("❌ STUDENT PROFILE NOT FOUND FOR USER ID:", claims.UserID)
+			return fiber.NewError(fiber.StatusForbidden, "student profile not found")
+		}
+
+		fmt.Println("✅ STUDENT FOUND")
+		fmt.Println("STUDENT.ID (UUID) :", student.ID)
+
+		data, err := s.achievementRepo.FindByStudentIDs(
+			c.Context(),
+			[]string{student.ID},
+		)
+		if err != nil {
+			fmt.Println("❌ MONGO QUERY ERROR:", err)
+			return fiber.NewError(500, "failed to fetch achievements")
+		}
+
+		fmt.Println("🎯 RESULT COUNT :", len(data))
+		return c.JSON(fiber.Map{"data": data})
+
+	// =====================
+	// DOSEN WALI (FIXED)
+	// =====================
+	case "Dosen Wali":
+		fmt.Println(">> FLOW: DOSEN WALI")
+
+		// 1️⃣ ambil lecturer dari user_id (JWT)
+		lecturer, err := s.lecturerRepo.GetLecturerProfile(
+			c.Context(),
+			claims.UserID,
+		)
+		if err != nil {
+			fmt.Println("❌ LECTURER PROFILE NOT FOUND FOR USER ID:", claims.UserID)
+			return fiber.NewError(fiber.StatusForbidden, "lecturer profile not found")
+		}
+
+		fmt.Println("LECTURER.ID (advisor_id):", lecturer.ID)
+
+		// 2️⃣ ambil mahasiswa bimbingan
+		students, err := s.studentRepo.GetStudentsByAdvisor(
+			c.Context(),
+			lecturer.ID, // ✅ advisor_id
+		)
+		if err != nil {
+			fmt.Println("❌ FAILED FETCH ADVISEES:", err)
+			return fiber.NewError(500, "failed to fetch advisees")
+		}
+
+		fmt.Println("ADVISEE COUNT :", len(students))
+
+		if len(students) == 0 {
+			fmt.Println("⚠️ DOSEN TIDAK PUNYA ANAK WALI")
+			return c.JSON(fiber.Map{"data": []any{}})
+		}
+
+		var studentIDs []string
+		for _, st := range students {
+			fmt.Println(" - ADVISEE STUDENT.ID :", st.ID)
+			studentIDs = append(studentIDs, st.ID)
+		}
+
+		fmt.Println("STUDENT IDS FILTER :", studentIDs)
+
+		data, err := s.achievementRepo.FindByStudentIDs(
+			c.Context(),
+			studentIDs,
+		)
+		if err != nil {
+			fmt.Println("❌ MONGO QUERY ERROR:", err)
+			return fiber.NewError(500, "failed to fetch achievements")
+		}
+
+		fmt.Println("🎯 RESULT COUNT :", len(data))
+		return c.JSON(fiber.Map{"data": data})
+
+	// =====================
+	// ADMIN
+	// =====================
+	case "Admin":
+		fmt.Println(">> FLOW: ADMIN (FIND ALL)")
+
+		data, err := s.achievementRepo.FindAll(c.Context())
+		if err != nil {
+			fmt.Println("❌ MONGO FIND ALL ERROR:", err)
+			return fiber.NewError(500, "failed to fetch achievements")
+		}
+
+		fmt.Println("🎯 RESULT COUNT :", len(data))
+		return c.JSON(fiber.Map{"data": data})
+
+	default:
+		fmt.Println("❌ UNKNOWN ROLE:", claims.Role)
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+}
+
+func (s *AchievementService) GetAchievementByID(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	id := c.Params("id")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid achievement id")
+	}
+
+	achievement, err := s.achievementRepo.GetByID(c.Context(), objID)
+	if err != nil || achievement.IsDeleted {
+		return fiber.NewError(fiber.StatusNotFound, "achievement not found")
+	}
+
+	switch claims.Role {
+
+	case "Mahasiswa":
+		student, err := s.studentRepo.GetStudentProfile(
+			c.Context(),
+			claims.UserID,
+		)
+		if err != nil || achievement.StudentID != student.ID {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+
+	case "Dosen Wali":
+		// 1️⃣ ambil lecturer dari user_id
+		lecturer, err := s.lecturerRepo.GetLecturerProfile(
+			c.Context(),
+			claims.UserID,
+		)
+		if err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "lecturer profile not found")
+		}
+
+		// 2️⃣ ambil mahasiswa bimbingan
+		students, err := s.studentRepo.GetStudentsByAdvisor(
+			c.Context(),
+			lecturer.ID, // ✅ advisor_id
+		)
+		if err != nil {
+			return fiber.NewError(500, "failed to fetch advisees")
+		}
+
+		allowed := false
+		for _, st := range students {
+			if st.ID == achievement.StudentID {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+
+	case "Admin":
+		// full access
+
+	default:
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+
+	return c.JSON(fiber.Map{"data": achievement})
 }

@@ -28,6 +28,7 @@ func SetupRoutes(app *fiber.App) {
 		achievementRepo,
 		achievementRefRepo,
 		studentRepo,
+		lecturerRepo,
 	)
 
 	// ROUTES

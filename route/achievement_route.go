@@ -19,6 +19,9 @@ func AchievementRoutes(
 		middleware.JWTAuth(userRepo),
 	)
 
+	api.Get("/", achievementSvc.GetAchievements)
+	api.Get("/:id", achievementSvc.GetAchievementByID)
+
 	api.Post(
 		"/",
 		middleware.RequirePermission("achievement:create"),
