@@ -40,6 +40,11 @@ type UpdateAchievementRequest struct {
 	Points      *int           `json:"points"`
 }
 
+// package service (atau dto khusus kalau kamu punya)
+type RejectAchievementRequest struct {
+	RejectionNote string `json:"rejection_note"`
+}
+
 type AchievementService struct {
 	achievementRepo repository.AchievementRepository
 	referenceRepo   repository.AchievementReferenceRepository
@@ -633,6 +638,95 @@ func (s *AchievementService) VerifyAchievement(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "achievement verified",
+		"data":    updatedRef,
+	})
+}
+
+func (s *AchievementService) RejectAchievement(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// 1️⃣ role check
+	switch claims.Role {
+	case "Dosen Wali", "Admin":
+		// allowed
+	default:
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+
+	// 2️⃣ parse request
+	var req RejectAchievementRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if req.RejectionNote == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "rejection_note is required")
+	}
+
+	// 3️⃣ ambil reference
+	ref, err := s.referenceRepo.GetByAchievementID(
+		c.Context(),
+		achievementID,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	// 4️⃣ hanya submitted
+	if ref.Status != "submitted" {
+		return fiber.NewError(
+			fiber.StatusBadRequest,
+			"only submitted achievement can be rejected",
+		)
+	}
+
+	// 5️⃣ dosen wali → validasi anak wali
+	if claims.Role == "Dosen Wali" {
+		lecturer, err := s.lecturerRepo.GetLecturerProfile(
+			c.Context(),
+			claims.UserID,
+		)
+		if err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "lecturer profile not found")
+		}
+
+		students, err := s.studentRepo.GetStudentsByAdvisor(
+			c.Context(),
+			lecturer.ID,
+		)
+		if err != nil {
+			return fiber.NewError(500, "failed to fetch advisees")
+		}
+
+		allowed := false
+		for _, st := range students {
+			if st.ID == ref.StudentID {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	}
+
+	// 6️⃣ reject (PostgreSQL)
+	updatedRef, err := s.referenceRepo.Reject(
+		c.Context(),
+		achievementID,
+		req.RejectionNote,
+	)
+	if err != nil {
+		return fiber.NewError(
+			fiber.StatusInternalServerError,
+			"failed to reject achievement",
+		)
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "achievement rejected",
 		"data":    updatedRef,
 	})
 }

@@ -56,4 +56,9 @@ func AchievementRoutes(
 		achievementSvc.VerifyAchievement,
 	)
 
+	api.Post(
+		"/:id/reject",
+		achievementSvc.RejectAchievement,
+	)
+
 }
