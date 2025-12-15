@@ -12,6 +12,11 @@ type AchievementReferenceRepository interface {
 	GetByAchievementID(ctx context.Context, achievementID string) (*model.AchievementReference, error)
 	MarkDeleted(ctx context.Context, achievementID string) error
 	Submit(ctx context.Context, achievementID string) (*model.AchievementReference, error)
+	Verify(
+		ctx context.Context,
+		achievementID string,
+		verifiedBy string,
+	) (*model.AchievementReference, error)
 }
 
 type achievementReferenceRepository struct {
@@ -111,6 +116,60 @@ func (r *achievementReferenceRepository) Submit(
 
 	var ref model.AchievementReference
 	err := r.db.QueryRow(ctx, query, achievementID).Scan(
+		&ref.ID,
+		&ref.StudentID,
+		&ref.MongoAchievementID,
+		&ref.Status,
+		&ref.SubmittedAt,
+		&ref.VerifiedAt,
+		&ref.VerifiedBy,
+		&ref.RejectionNote,
+		&ref.CreatedAt,
+		&ref.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &ref, nil
+}
+
+func (r *achievementReferenceRepository) Verify(
+	ctx context.Context,
+	achievementID string,
+	verifiedBy string,
+) (*model.AchievementReference, error) {
+
+	query := `
+		UPDATE achievement_references
+		SET
+			status = 'verified',
+			verified_at = NOW(),
+			verified_by = $2,
+			updated_at = NOW()
+		WHERE mongo_achievement_id = $1
+		  AND status = 'submitted'
+		RETURNING
+			id,
+			student_id,
+			mongo_achievement_id,
+			status,
+			submitted_at,
+			verified_at,
+			verified_by,
+			rejection_note,
+			created_at,
+			updated_at
+	`
+
+	var ref model.AchievementReference
+	err := r.db.QueryRow(
+		ctx,
+		query,
+		achievementID,
+		verifiedBy,
+	).Scan(
 		&ref.ID,
 		&ref.StudentID,
 		&ref.MongoAchievementID,

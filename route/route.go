@@ -18,7 +18,6 @@ func SetupRoutes(app *fiber.App) {
 	lecturerRepo := repository.NewLecturerRepository(database.PG)
 	achievementRepo := repository.NewAchievementRepository(database.MongoDB)
 	achievementRefRepo := repository.NewAchievementReferenceRepository(database.PG)
-	notificationRepo := repository.NewNotificationRepository(database.PG)
 
 	// === INIT SERVICE ===
 	authService := service.NewAuthService(userRepo, studentRepo)
@@ -30,7 +29,6 @@ func SetupRoutes(app *fiber.App) {
 		achievementRefRepo,
 		studentRepo,
 		lecturerRepo,
-		notificationRepo,
 	)
 
 	// ROUTES

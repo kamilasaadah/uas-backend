@@ -557,3 +557,82 @@ func (s *AchievementService) SubmitAchievement(c *fiber.Ctx) error {
 		"data":    updatedRef,
 	})
 }
+
+func (s *AchievementService) VerifyAchievement(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// 1️⃣ role check
+	switch claims.Role {
+	case "Dosen Wali", "Admin":
+		// allowed
+	default:
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+
+	// 2️⃣ ambil reference
+	ref, err := s.referenceRepo.GetByAchievementID(
+		c.Context(),
+		achievementID,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	// 3️⃣ hanya submitted yang bisa diverifikasi
+	if ref.Status != "submitted" {
+		return fiber.NewError(
+			fiber.StatusBadRequest,
+			"only submitted achievement can be verified",
+		)
+	}
+
+	// 4️⃣ khusus dosen wali → pastikan mahasiswa adalah anak walinya
+	if claims.Role == "Dosen Wali" {
+		lecturer, err := s.lecturerRepo.GetLecturerProfile(
+			c.Context(),
+			claims.UserID,
+		)
+		if err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "lecturer profile not found")
+		}
+
+		students, err := s.studentRepo.GetStudentsByAdvisor(
+			c.Context(),
+			lecturer.ID,
+		)
+		if err != nil {
+			return fiber.NewError(500, "failed to fetch advisees")
+		}
+
+		allowed := false
+		for _, st := range students {
+			if st.ID == ref.StudentID {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	}
+
+	// 5️⃣ verify (PostgreSQL)
+	updatedRef, err := s.referenceRepo.Verify(
+		c.Context(),
+		achievementID,
+		claims.UserID,
+	)
+	if err != nil {
+		return fiber.NewError(
+			fiber.StatusInternalServerError,
+			"failed to verify achievement",
+		)
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "achievement verified",
+		"data":    updatedRef,
+	})
+}

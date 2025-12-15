@@ -51,4 +51,9 @@ func AchievementRoutes(
 		achievementSvc.SubmitAchievement,
 	)
 
+	api.Post(
+		"/:id/verify",
+		achievementSvc.VerifyAchievement,
+	)
+
 }
