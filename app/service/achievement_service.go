@@ -41,10 +41,11 @@ type UpdateAchievementRequest struct {
 }
 
 type AchievementService struct {
-	achievementRepo repository.AchievementRepository
-	referenceRepo   repository.AchievementReferenceRepository
-	studentRepo     repository.StudentRepository
-	lecturerRepo    repository.LecturerRepository
+	achievementRepo  repository.AchievementRepository
+	referenceRepo    repository.AchievementReferenceRepository
+	studentRepo      repository.StudentRepository
+	lecturerRepo     repository.LecturerRepository
+	notificationRepo repository.NotificationRepository
 }
 
 func NewAchievementService(
@@ -52,12 +53,14 @@ func NewAchievementService(
 	referenceRepo repository.AchievementReferenceRepository,
 	studentRepo repository.StudentRepository,
 	lecturerRepo repository.LecturerRepository,
+	notificationRepo repository.NotificationRepository,
 ) *AchievementService {
 	return &AchievementService{
-		achievementRepo: achievementRepo,
-		referenceRepo:   referenceRepo,
-		studentRepo:     studentRepo,
-		lecturerRepo:    lecturerRepo,
+		achievementRepo:  achievementRepo,
+		referenceRepo:    referenceRepo,
+		studentRepo:      studentRepo,
+		lecturerRepo:     lecturerRepo,
+		notificationRepo: notificationRepo,
 	}
 }
 
@@ -502,4 +505,77 @@ func (s *AchievementService) GetAchievementByID(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"data": achievement})
+}
+
+func (s *AchievementService) SubmitAchievement(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// 1️⃣ ambil reference
+	ref, err := s.referenceRepo.GetByAchievementID(
+		c.Context(),
+		achievementID,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	// 2️⃣ hanya draft
+	if ref.Status != "draft" {
+		return fiber.NewError(
+			fiber.StatusBadRequest,
+			"only draft achievement can be submitted",
+		)
+	}
+
+	// 3️⃣ authorization
+	switch claims.Role {
+	case "Mahasiswa":
+		if claims.StudentID == "" || ref.StudentID != claims.StudentID {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+
+	case "Admin":
+		// allowed
+
+	default:
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+
+	// 4️⃣ update status → submitted
+	updatedRef, err := s.referenceRepo.Submit(
+		c.Context(),
+		achievementID,
+	)
+	if err != nil {
+		return fiber.NewError(
+			fiber.StatusInternalServerError,
+			"failed to submit achievement",
+		)
+	}
+
+	// 5️⃣ cari dosen wali mahasiswa
+	student, err := s.studentRepo.GetStudentByID(
+		c.Context(),
+		ref.StudentID,
+	)
+	if err == nil && student.AdvisorID != "" {
+
+		notification := &model.Notification{
+			UserID:  student.AdvisorID,
+			Title:   "Prestasi Baru Diajukan",
+			Message: "Mahasiswa bimbingan Anda mengajukan prestasi untuk diverifikasi",
+		}
+
+		_ = s.notificationRepo.Create(
+			c.Context(),
+			notification,
+		)
+	}
+
+	// 6️⃣ response
+	return c.JSON(fiber.Map{
+		"message": "achievement submitted for verification",
+		"data":    updatedRef,
+	})
 }

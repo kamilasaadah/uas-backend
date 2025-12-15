@@ -46,4 +46,9 @@ func AchievementRoutes(
 		achievementSvc.DeleteAchievement,
 	)
 
+	api.Post(
+		"/:id/submit",
+		achievementSvc.SubmitAchievement,
+	)
+
 }
