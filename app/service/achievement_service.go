@@ -41,11 +41,10 @@ type UpdateAchievementRequest struct {
 }
 
 type AchievementService struct {
-	achievementRepo  repository.AchievementRepository
-	referenceRepo    repository.AchievementReferenceRepository
-	studentRepo      repository.StudentRepository
-	lecturerRepo     repository.LecturerRepository
-	notificationRepo repository.NotificationRepository
+	achievementRepo repository.AchievementRepository
+	referenceRepo   repository.AchievementReferenceRepository
+	studentRepo     repository.StudentRepository
+	lecturerRepo    repository.LecturerRepository
 }
 
 func NewAchievementService(
@@ -53,14 +52,12 @@ func NewAchievementService(
 	referenceRepo repository.AchievementReferenceRepository,
 	studentRepo repository.StudentRepository,
 	lecturerRepo repository.LecturerRepository,
-	notificationRepo repository.NotificationRepository,
 ) *AchievementService {
 	return &AchievementService{
-		achievementRepo:  achievementRepo,
-		referenceRepo:    referenceRepo,
-		studentRepo:      studentRepo,
-		lecturerRepo:     lecturerRepo,
-		notificationRepo: notificationRepo,
+		achievementRepo: achievementRepo,
+		referenceRepo:   referenceRepo,
+		studentRepo:     studentRepo,
+		lecturerRepo:    lecturerRepo,
 	}
 }
 
@@ -551,25 +548,6 @@ func (s *AchievementService) SubmitAchievement(c *fiber.Ctx) error {
 		return fiber.NewError(
 			fiber.StatusInternalServerError,
 			"failed to submit achievement",
-		)
-	}
-
-	// 5️⃣ cari dosen wali mahasiswa
-	student, err := s.studentRepo.GetStudentByID(
-		c.Context(),
-		ref.StudentID,
-	)
-	if err == nil && student.AdvisorID != "" {
-
-		notification := &model.Notification{
-			UserID:  student.AdvisorID,
-			Title:   "Prestasi Baru Diajukan",
-			Message: "Mahasiswa bimbingan Anda mengajukan prestasi untuk diverifikasi",
-		}
-
-		_ = s.notificationRepo.Create(
-			c.Context(),
-			notification,
 		)
 	}
 
