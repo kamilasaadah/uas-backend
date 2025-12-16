@@ -21,6 +21,7 @@ type AchievementRepository interface {
 	SoftDelete(ctx context.Context, id primitive.ObjectID) error
 	FindByStudentIDs(ctx context.Context, studentIDs []string) ([]model.Achievement, error)
 	FindAll(ctx context.Context) ([]model.Achievement, error)
+	FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]model.Achievement, error)
 }
 
 type achievementRepository struct {
@@ -158,6 +159,38 @@ func (r *achievementRepository) FindAll(
 		notDeletedFilter(), // ✅ FIX UTAMA
 		opts,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []model.Achievement
+	if err := cursor.All(ctx, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *achievementRepository) FindByIDs(
+	ctx context.Context,
+	ids []primitive.ObjectID,
+) ([]model.Achievement, error) {
+
+	// ⛔ jangan query Mongo dengan $in: []
+	if len(ids) == 0 {
+		return []model.Achievement{}, nil
+	}
+
+	filter := bson.M{
+		"_id": bson.M{"$in": ids},
+	}
+
+	// gabung dengan not-deleted
+	for k, v := range notDeletedFilter() {
+		filter[k] = v
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
