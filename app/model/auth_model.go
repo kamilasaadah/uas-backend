@@ -11,3 +11,7 @@ type JWTClaims struct {
 
 	jwt.RegisteredClaims
 }
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}

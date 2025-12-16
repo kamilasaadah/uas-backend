@@ -16,6 +16,8 @@ import (
 type AuthHttpHandler interface {
 	Login(c *fiber.Ctx) error
 	Profile(c *fiber.Ctx) error
+	Refresh(c *fiber.Ctx) error
+	Logout(c *fiber.Ctx) error
 }
 
 type authService struct {
@@ -148,5 +150,79 @@ func (s *authService) error(c *fiber.Ctx, code int, msg string) error {
 		"code":    code,
 		"message": msg,
 		"error":   msg,
+	})
+}
+
+func (s *authService) Refresh(c *fiber.Ctx) error {
+
+	var req model.RefreshTokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return s.error(c, 400, "invalid input")
+	}
+
+	// 1️⃣ parse refresh token
+	claims := jwt.MapClaims{}
+	token, err := jwt.ParseWithClaims(
+		req.RefreshToken,
+		claims,
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(config.JWTSecret()), nil
+		},
+	)
+
+	if err != nil || !token.Valid {
+		return s.error(c, 401, "invalid refresh token")
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return s.error(c, 401, "invalid refresh token")
+	}
+
+	// 2️⃣ ambil user
+	user, err := s.userRepo.GetUserByID(
+		c.Context(),
+		userID,
+	)
+	if err != nil || !user.IsActive {
+		return s.error(c, 401, "user not found")
+	}
+
+	// 3️⃣ permissions
+	perms, err := s.userRepo.GetUserPermissions(user.ID)
+	if err != nil {
+		return s.error(c, 500, "failed to load permissions")
+	}
+
+	// 4️⃣ new access token
+	newClaims := jwt.MapClaims{
+		"user_id":     user.ID,
+		"username":    user.Username,
+		"full_name":   user.FullName,
+		"role":        user.RoleName,
+		"role_id":     user.RoleID,
+		"permissions": perms,
+		"exp":         time.Now().Add(2 * time.Hour).Unix(),
+	}
+
+	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims).
+		SignedString([]byte(config.JWTSecret()))
+	if err != nil {
+		return s.error(c, 500, "failed to sign token")
+	}
+
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Token refreshed",
+		"data": fiber.Map{
+			"token": accessToken,
+		},
+	})
+}
+
+func (s *authService) Logout(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"code":    200,
+		"message": "Logout successful",
 	})
 }
