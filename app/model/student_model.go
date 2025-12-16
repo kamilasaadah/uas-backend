@@ -18,3 +18,8 @@ type StudentProfileRequest struct {
 type SetAdvisorRequest struct {
 	AdvisorID string `json:"advisor_id" validate:"required"`
 }
+
+type StudentAchievementResponse struct {
+	Achievement Achievement           `json:"achievement"`
+	Reference   *AchievementReference `json:"reference,omitempty"`
+}

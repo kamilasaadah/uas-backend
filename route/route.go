@@ -22,7 +22,7 @@ func SetupRoutes(app *fiber.App) {
 	// === INIT SERVICE ===
 	authService := service.NewAuthService(userRepo, studentRepo)
 	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
-	studentSvc := service.NewStudentService(studentRepo, lecturerRepo)
+	studentSvc := service.NewStudentService(studentRepo, lecturerRepo, achievementRepo, achievementRefRepo)
 	lecturerSvc := service.NewLecturerService(lecturerRepo, studentRepo)
 	achievementSvc := service.NewAchievementService(
 		achievementRepo,
