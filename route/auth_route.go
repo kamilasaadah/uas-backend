@@ -16,9 +16,9 @@ func AuthRoutes(
 	// PUBLIC
 	r.Post("/login", authService.Login)
 	r.Post("/refresh", authService.Refresh)
-	r.Post("/logout", authService.Logout)
 
 	// PROTECTED
 	protected := r.Group("/", middleware.JWTAuth(userRepo))
 	protected.Get("/profile", authService.Profile)
+	protected.Post("/logout", authService.Logout)
 }

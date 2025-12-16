@@ -21,21 +21,31 @@ func JWTAuth(userRepo repository.UserRepository) fiber.Handler {
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
+		// 🔥 TAMBAHAN AMAN: cek blocklist (SEBELUM parse)
+		if IsJWTBlocked(tokenString) {
+			return fiber.ErrUnauthorized
+		}
+
 		claims := &model.JWTClaims{}
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
-			return []byte(config.JWTSecret()), nil
-		})
+		token, err := jwt.ParseWithClaims(
+			tokenString,
+			claims,
+			func(t *jwt.Token) (interface{}, error) {
+				return []byte(config.JWTSecret()), nil
+			},
+		)
 
 		if err != nil || !token.Valid {
 			return fiber.ErrUnauthorized
 		}
 
-		// 🔥 ambil permission dari DB via repository
+		// 🔥 ambil permission dari DB via repository (TETAP)
 		perms, err := userRepo.GetUserPermissions(claims.UserID)
 		if err != nil {
 			return fiber.ErrForbidden
 		}
 
+		// ⛔️ SEMUA LOCALS TETAP (ENDPOINT AMAN)
 		c.Locals("user", claims)
 		c.Locals("user_id", claims.UserID)
 		c.Locals("role", claims.Role)

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,6 +12,7 @@ import (
 	"uas-backend/app/model"
 	"uas-backend/app/repository"
 	"uas-backend/config"
+	"uas-backend/middleware"
 )
 
 type AuthHttpHandler interface {
@@ -221,6 +223,36 @@ func (s *authService) Refresh(c *fiber.Ctx) error {
 }
 
 func (s *authService) Logout(c *fiber.Ctx) error {
+
+	authHeader := c.Get("Authorization")
+	if authHeader == "" {
+		return s.error(c, 401, "missing token")
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+	claims := jwt.MapClaims{}
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(config.JWTSecret()), nil
+		},
+	)
+	if err != nil || !token.Valid {
+		return s.error(c, 401, "invalid token")
+	}
+
+	expUnix, ok := claims["exp"].(float64)
+	if !ok {
+		return s.error(c, 400, "invalid token payload")
+	}
+
+	expiredAt := time.Unix(int64(expUnix), 0)
+
+	// 🔥 BLOCK TOKEN DI MEMORY
+	middleware.BlockJWT(tokenString, expiredAt)
+
 	return c.JSON(fiber.Map{
 		"code":    200,
 		"message": "Logout successful",
