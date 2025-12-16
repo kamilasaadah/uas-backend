@@ -19,8 +19,6 @@ func ReportRoutes(
 		middleware.JWTAuth(userRepo),
 	)
 
-	report.Get(
-		"/statistics",
-		reportService.GetStatistics,
-	)
+	report.Get("/statistics", reportService.GetStatistics)
+	report.Get("/student/:id", reportService.GetStudentStatistics)
 }
