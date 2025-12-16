@@ -50,7 +50,6 @@ type AchievementService struct {
 	referenceRepo   repository.AchievementReferenceRepository
 	studentRepo     repository.StudentRepository
 	lecturerRepo    repository.LecturerRepository
-	historyRepo     repository.AchievementHistoryRepository
 }
 
 func NewAchievementService(
@@ -58,14 +57,12 @@ func NewAchievementService(
 	referenceRepo repository.AchievementReferenceRepository,
 	studentRepo repository.StudentRepository,
 	lecturerRepo repository.LecturerRepository,
-	historyRepo repository.AchievementHistoryRepository,
 ) *AchievementService {
 	return &AchievementService{
 		achievementRepo: achievementRepo,
 		referenceRepo:   referenceRepo,
 		studentRepo:     studentRepo,
 		lecturerRepo:    lecturerRepo,
-		historyRepo:     historyRepo,
 	}
 }
 
