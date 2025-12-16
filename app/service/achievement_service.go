@@ -50,6 +50,7 @@ type AchievementService struct {
 	referenceRepo   repository.AchievementReferenceRepository
 	studentRepo     repository.StudentRepository
 	lecturerRepo    repository.LecturerRepository
+	historyRepo     repository.AchievementHistoryRepository
 }
 
 func NewAchievementService(
@@ -57,12 +58,14 @@ func NewAchievementService(
 	referenceRepo repository.AchievementReferenceRepository,
 	studentRepo repository.StudentRepository,
 	lecturerRepo repository.LecturerRepository,
+	historyRepo repository.AchievementHistoryRepository,
 ) *AchievementService {
 	return &AchievementService{
 		achievementRepo: achievementRepo,
 		referenceRepo:   referenceRepo,
 		studentRepo:     studentRepo,
 		lecturerRepo:    lecturerRepo,
+		historyRepo:     historyRepo,
 	}
 }
 
@@ -728,5 +731,97 @@ func (s *AchievementService) RejectAchievement(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "achievement rejected",
 		"data":    updatedRef,
+	})
+}
+
+func (s *AchievementService) GetAchievementHistory(c *fiber.Ctx) error {
+	claims := c.Locals("user").(*model.JWTClaims)
+	achievementID := c.Params("id")
+
+	// 1️⃣ ambil reference (SUMBER STATUS)
+	ref, err := s.referenceRepo.GetByAchievementID(
+		c.Context(),
+		achievementID,
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "achievement reference not found")
+	}
+
+	// 2️⃣ ambil achievement MongoDB
+	objID, err := primitive.ObjectIDFromHex(achievementID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid achievement id")
+	}
+
+	achievement, err := s.achievementRepo.GetByID(c.Context(), objID)
+	if err != nil || achievement.IsDeleted {
+		return fiber.NewError(fiber.StatusNotFound, "achievement not found")
+	}
+
+	// 3️⃣ AUTH (tetap seperti punyamu)
+	switch claims.Role {
+	case "Mahasiswa":
+		if claims.StudentID == "" || ref.StudentID != claims.StudentID {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	case "Admin":
+		// ok
+	case "Dosen Wali":
+		lecturer, err := s.lecturerRepo.GetLecturerProfile(c.Context(), claims.UserID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "lecturer profile not found")
+		}
+		students, _ := s.studentRepo.GetStudentsByAdvisor(c.Context(), lecturer.ID)
+
+		allowed := false
+		for _, st := range students {
+			if st.ID == ref.StudentID {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return fiber.NewError(fiber.StatusForbidden, "access denied")
+		}
+	default:
+		return fiber.NewError(fiber.StatusForbidden, "access denied")
+	}
+
+	// 4️⃣ BENTUK HISTORY DARI reference
+	history := []model.AchievementStatusHistory{}
+
+	// draft (selalu ada)
+	history = append(history, model.AchievementStatusHistory{
+		Status:    "draft",
+		UpdatedAt: ref.CreatedAt,
+	})
+
+	if ref.SubmittedAt != nil {
+		history = append(history, model.AchievementStatusHistory{
+			Status:    "submitted",
+			UpdatedAt: *ref.SubmittedAt,
+		})
+	}
+
+	if ref.VerifiedAt != nil {
+		history = append(history, model.AchievementStatusHistory{
+			Status:    "verified",
+			UpdatedAt: *ref.VerifiedAt,
+			UpdatedBy: ref.VerifiedBy,
+		})
+	}
+
+	if ref.Status == "rejected" && ref.RejectionNote != nil {
+		history = append(history, model.AchievementStatusHistory{
+			Status:    "rejected",
+			Note:      ref.RejectionNote,
+			UpdatedAt: ref.UpdatedAt,
+		})
+	}
+
+	// 5️⃣ RESPONSE
+	return c.JSON(model.AchievementHistoryResponse{
+		Achievement: *achievement,
+		History:     history,
 	})
 }

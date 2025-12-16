@@ -61,4 +61,9 @@ func AchievementRoutes(
 		achievementSvc.RejectAchievement,
 	)
 
+	api.Get(
+		"/:id/history",
+		achievementSvc.GetAchievementHistory,
+	)
+
 }

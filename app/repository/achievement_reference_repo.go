@@ -64,7 +64,13 @@ func (r *achievementReferenceRepository) GetByAchievementID(
 			id,
 			student_id,
 			mongo_achievement_id,
-			status
+			status,
+			submitted_at,
+			verified_at,
+			verified_by,
+			rejection_note,
+			created_at,
+			updated_at
 		FROM achievement_references
 		WHERE mongo_achievement_id = $1
 		`,
@@ -74,6 +80,12 @@ func (r *achievementReferenceRepository) GetByAchievementID(
 		&ref.StudentID,
 		&ref.MongoAchievementID,
 		&ref.Status,
+		&ref.SubmittedAt,
+		&ref.VerifiedAt,
+		&ref.VerifiedBy,
+		&ref.RejectionNote,
+		&ref.CreatedAt,
+		&ref.UpdatedAt,
 	)
 
 	if err != nil {
