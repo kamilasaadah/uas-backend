@@ -1,0 +1,11 @@
+basePath: /api
+host: localhost:3000
+info:
+  contact: {}
+  description: API Backend untuk UAS
+  title: UAS Backend API
+  version: "1.0"
+paths: {}
+schemes:
+- http
+swagger: "2.0"
