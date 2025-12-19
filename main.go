@@ -21,8 +21,14 @@ import (
 // @version 1.0
 // @description API Backend untuk UAS
 // @host localhost:3000
-// @BasePath /api
+// @BasePath /api/v1
 // @schemes http
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
+// @security BearerAuth
 
 func main() {
 	// Load environment

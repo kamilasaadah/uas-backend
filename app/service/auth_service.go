@@ -41,6 +41,19 @@ func NewAuthService(
 // LOGIN HANDLER (BISNIS LOGIC + ERROR CODE DI DALAM SINI)
 ///////////////////////////////////////////////////////////////////////////////
 
+// Login godoc
+// @Summary Login user
+// @Description Login menggunakan username/email dan password
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body model.LoginRequest true "Login payload"
+// @Success 200 {object} map[string]interface{} "Login successful"
+// @Failure 400 {object} map[string]interface{} "Invalid input"
+// @Failure 401 {object} map[string]interface{} "Invalid credentials"
+// @Failure 403 {object} map[string]interface{} "Account not active"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /auth/login [post]
 func (s *authService) Login(c *fiber.Ctx) error {
 
 	var req model.LoginRequest
@@ -132,6 +145,16 @@ func (s *authService) Login(c *fiber.Ctx) error {
 // PROFILE HANDLER
 ///////////////////////////////////////////////////////////////////////////////
 
+// Profile godoc
+// @Summary Get current user profile
+// @Description Mengambil profile user dari JWT
+// @Tags Auth
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Profile fetched"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Router /auth/profile [get]
 func (s *authService) Profile(c *fiber.Ctx) error {
 
 	claims := c.Locals("user").(*model.JWTClaims)
@@ -155,6 +178,18 @@ func (s *authService) error(c *fiber.Ctx, code int, msg string) error {
 	})
 }
 
+// Refresh godoc
+// @Summary Refresh access token
+// @Description Generate access token baru menggunakan refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body model.RefreshTokenRequest true "Refresh token payload"
+// @Success 200 {object} map[string]interface{} "Token refreshed"
+// @Failure 400 {object} map[string]interface{} "Invalid input"
+// @Failure 401 {object} map[string]interface{} "Invalid refresh token"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /auth/refresh [post]
 func (s *authService) Refresh(c *fiber.Ctx) error {
 
 	var req model.RefreshTokenRequest
@@ -222,6 +257,17 @@ func (s *authService) Refresh(c *fiber.Ctx) error {
 	})
 }
 
+// Logout godoc
+// @Summary Logout user
+// @Description Logout user dan memblokir JWT sampai expired
+// @Tags Auth
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Logout successful"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 400 {object} map[string]interface{} "Invalid token"
+// @Router /auth/logout [post]
 func (s *authService) Logout(c *fiber.Ctx) error {
 
 	authHeader := c.Get("Authorization")

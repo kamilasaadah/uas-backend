@@ -23,6 +23,17 @@ func NewLecturerService(lecturerRepo repository.LecturerRepository, studentRepo 
 // =====================================
 // GET /lecturers  (Admin Only)
 // =====================================
+
+// GetAllLecturers godoc
+// @Summary Get all lecturers
+// @Description Admin only. Get list of all lecturers
+// @Tags Lecturers
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {array} model.Lecturer
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /lecturers [get]
 func (s *LecturerService) GetAllLecturers(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
@@ -41,6 +52,23 @@ func (s *LecturerService) GetAllLecturers(c *fiber.Ctx) error {
 // =====================================
 // GET /lecturers/:id/advisees (Admin Only)
 // =====================================
+
+// GetAdvisees godoc
+// @Summary Get lecturer advisees
+// @Description
+//
+//	Admin: get all students
+//	Dosen Wali: get advisees of own lecturer ID
+//
+// @Tags Lecturers
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Lecturer ID"
+// @Success 200 {array} model.Student
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /lecturers/{id}/advisees [get]
 func (s *LecturerService) GetAdvisees(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	lecturerIDParam := c.Params("id")

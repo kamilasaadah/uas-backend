@@ -29,7 +29,21 @@ func NewStudentService(
 	}
 }
 
-// PUT /api/v1/students/:id/advisor
+// SetAdvisor godoc
+// @Summary Set student advisor
+// @Description Admin only. Assign or update advisor (lecturer) for a student
+// @Tags Students
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Student ID"
+// @Param request body model.SetAdvisorRequest true "Advisor payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /students/{id}/advisor [put]
 func (s *StudentService) SetAdvisor(c *fiber.Ctx) error {
 	studentID := c.Params("id")
 
@@ -55,6 +69,16 @@ func (s *StudentService) SetAdvisor(c *fiber.Ctx) error {
 	})
 }
 
+// GetAllStudents godoc
+// @Summary Get all students
+// @Description Admin only. Get list of all students
+// @Tags Students
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {array} model.Student
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /students [get]
 func (s *StudentService) GetAllStudents(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
@@ -69,6 +93,17 @@ func (s *StudentService) GetAllStudents(c *fiber.Ctx) error {
 	return c.JSON(students)
 }
 
+// GetStudentByID godoc
+// @Summary Get student by ID
+// @Description Admin only. Get detail of a student
+// @Tags Students
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Student ID"
+// @Success 200 {object} model.Student
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /students/{id} [get]
 func (s *StudentService) GetStudentByID(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	studentID := c.Params("id")
@@ -84,6 +119,22 @@ func (s *StudentService) GetStudentByID(c *fiber.Ctx) error {
 	return c.JSON(student)
 }
 
+// GetStudentAchievements godoc
+// @Summary Get student achievements
+// @Description
+//
+//	Admin: access any student achievements
+//	Dosen Wali: only achievements of own advisee
+//
+// @Tags Students
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Student ID"
+// @Success 200 {array} model.StudentAchievementResponse
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /students/{id}/achievements [get]
 func (s *StudentService) GetStudentAchievements(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	studentID := c.Params("id")

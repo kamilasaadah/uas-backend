@@ -66,6 +66,19 @@ func NewAchievementService(
 	}
 }
 
+// CreateAchievement godoc
+// @Summary Buat prestasi baru
+// @Description Mahasiswa otomatis pakai student_id dari JWT, Admin wajib mengisi studentId
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body service.CreateAchievementRequest true "Create Achievement Payload"
+// @Success 201 {object} map[string]interface{} "Achievement created"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 500 {object} map[string]interface{} "Failed to create achievement"
+// @Router /achievements [post]
 func (s *AchievementService) CreateAchievement(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
@@ -136,6 +149,22 @@ func (s *AchievementService) CreateAchievement(c *fiber.Ctx) error {
 	})
 }
 
+// UploadAttachment godoc
+// @Summary Upload lampiran prestasi
+// @Description
+// Hanya boleh jika status prestasi masih draft
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Param file formData file true "Attachment file"
+// @Success 200 {object} map[string]interface{} "Attachment uploaded"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Failure 500 {object} map[string]interface{} "Failed to upload attachment"
+// @Router /achievements/{id}/attachments [post]
 func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")
@@ -212,6 +241,22 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	})
 }
 
+// UpdateAchievement godoc
+// @Summary Update prestasi
+// @Description
+// Hanya bisa update jika status masih draft
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Param body body service.UpdateAchievementRequest true "Update Achievement Payload"
+// @Success 200 {object} map[string]interface{} "Achievement updated"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Failure 500 {object} map[string]interface{} "Failed to update achievement"
+// @Router /achievements/{id} [put]
 func (s *AchievementService) UpdateAchievement(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")
@@ -280,6 +325,21 @@ func (s *AchievementService) UpdateAchievement(c *fiber.Ctx) error {
 	})
 }
 
+// DeleteAchievement godoc
+// @Summary Hapus prestasi
+// @Description
+// Soft delete, hanya bisa jika status masih draft
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]interface{} "Achievement deleted"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Failure 500 {object} map[string]interface{} "Failed to delete achievement"
+// @Router /achievements/{id} [delete]
 func (s *AchievementService) DeleteAchievement(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")
@@ -328,6 +388,20 @@ func (s *AchievementService) DeleteAchievement(c *fiber.Ctx) error {
 	})
 }
 
+// GetAchievements godoc
+// @Summary Ambil daftar prestasi
+// @Description
+// Mahasiswa: hanya prestasi miliknya
+// Dosen Wali: prestasi mahasiswa bimbingan
+// Admin: semua prestasi
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "List achievements"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 500 {object} map[string]interface{} "Failed to fetch achievements"
+// @Router /achievements/ [get]
 func (s *AchievementService) GetAchievements(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
@@ -443,6 +517,22 @@ func (s *AchievementService) GetAchievements(c *fiber.Ctx) error {
 	}
 }
 
+// GetAchievementByID godoc
+// @Summary Ambil detail prestasi
+// @Description
+// Mahasiswa hanya boleh lihat prestasi sendiri
+// Dosen Wali hanya prestasi mahasiswa bimbingan
+// Admin bebas
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID (Mongo ObjectID)"
+// @Success 200 {object} map[string]interface{} "Achievement detail"
+// @Failure 400 {object} map[string]interface{} "Invalid ID"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Router /achievements/{id} [get]
 func (s *AchievementService) GetAchievementByID(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	id := c.Params("id")
@@ -509,6 +599,20 @@ func (s *AchievementService) GetAchievementByID(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": achievement})
 }
 
+// SubmitAchievement godoc
+// @Summary Submit prestasi untuk verifikasi
+// @Description
+// Mengubah status dari draft ke submitted
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]interface{} "Achievement submitted"
+// @Failure 400 {object} map[string]interface{} "Invalid status"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Router /achievements/{id}/submit [post]
 func (s *AchievementService) SubmitAchievement(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")
@@ -563,6 +667,20 @@ func (s *AchievementService) SubmitAchievement(c *fiber.Ctx) error {
 	})
 }
 
+// VerifyAchievement godoc
+// @Summary Verifikasi prestasi
+// @Description
+// Hanya untuk Dosen Wali dan Admin
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]interface{} "Achievement verified"
+// @Failure 400 {object} map[string]interface{} "Invalid status"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Router /achievements/{id}/verify [post]
 func (s *AchievementService) VerifyAchievement(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")
@@ -642,6 +760,20 @@ func (s *AchievementService) VerifyAchievement(c *fiber.Ctx) error {
 	})
 }
 
+// / RejectAchievement godoc
+// @Summary Tolak prestasi
+// @Description Hanya untuk Dosen Wali dan Admin, status harus submitted
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Param body body service.RejectAchievementRequest true "Reject Payload"
+// @Success 200 {object} map[string]interface{} "Achievement rejected"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Router /achievements/{id}/reject [post]
 func (s *AchievementService) RejectAchievement(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")
@@ -731,6 +863,18 @@ func (s *AchievementService) RejectAchievement(c *fiber.Ctx) error {
 	})
 }
 
+// GetAchievementHistory godoc
+// @Summary Ambil riwayat status prestasi
+// @Description Menampilkan timeline status: draft, submitted, verified, rejected
+// @Tags Achievements
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]interface{} "Achievement history"
+// @Failure 403 {object} map[string]interface{} "Access denied"
+// @Failure 404 {object} map[string]interface{} "Achievement not found"
+// @Router /achievements/{id}/history [get]
 func (s *AchievementService) GetAchievementHistory(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	achievementID := c.Params("id")

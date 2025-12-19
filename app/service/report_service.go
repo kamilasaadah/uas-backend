@@ -32,6 +32,20 @@ func NewReportService(
 	}
 }
 
+// GetStatistics godoc
+// @Summary Get achievement statistics
+// @Description
+//
+//	Mahasiswa: statistics for own achievements
+//	Dosen Wali & Admin: statistics for all verified achievements
+//
+// @Tags Reports
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} model.AchievementStatisticsResponse
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /reports/statistics [get]
 func (s *ReportService) GetStatistics(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 
@@ -147,6 +161,21 @@ func (s *ReportService) GetStatistics(c *fiber.Ctx) error {
 	})
 }
 
+// GetStudentStatistics godoc
+// @Summary Get student achievement statistics
+// @Description
+//
+//	Mahasiswa: only own student ID
+//	Admin & Dosen Wali: any student
+//
+// @Tags Reports
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Student ID"
+// @Success 200 {object} model.AchievementStatisticsResponse
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /reports/student/{id} [get]
 func (s *ReportService) GetStudentStatistics(c *fiber.Ctx) error {
 	claims := c.Locals("user").(*model.JWTClaims)
 	studentID := c.Params("id")

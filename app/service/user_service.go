@@ -156,6 +156,18 @@ func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 // ======================= FIBER HANDLER WRAPPER ===============================
 ////////////////////////////////////////////////////////////////////////////////
 
+// Create godoc
+// @Summary Create new user
+// @Description Admin only. Create new system user (student / lecturer / admin)
+// @Tags Users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body model.CreateUserRequest true "Create user payload"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /users [post]
 func (s *UserService) Create(c *fiber.Ctx) error {
 	var req model.CreateUserRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -170,6 +182,19 @@ func (s *UserService) Create(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "user created", "data": user})
 }
 
+// Update godoc
+// @Summary Update user
+// @Description Admin only. Update user data and profile
+// @Tags Users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body model.UpdateUserRequest true "Update user payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /users/{id} [put]
 func (s *UserService) Update(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var req model.UpdateUserRequest
@@ -184,6 +209,19 @@ func (s *UserService) Update(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "user updated"})
 }
 
+// AssignRole godoc
+// @Summary Assign role to user
+// @Description Admin only. Assign or change user role
+// @Tags Users
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body model.UpdateUserRoleRequest true "Role payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /users/{id}/role [put]
 func (s *UserService) AssignRole(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var req model.UpdateUserRoleRequest
@@ -198,6 +236,16 @@ func (s *UserService) AssignRole(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "role updated"})
 }
 
+// GetAll godoc
+// @Summary Get all users
+// @Description Admin only. Retrieve list of all users with profiles
+// @Tags Users
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} map[string][]model.UserWithProfileResponse
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users [get]
 func (s *UserService) GetAll(c *fiber.Ctx) error {
 	users, err := s.GetAllUsers(context.Background())
 	if err != nil {
@@ -207,6 +255,17 @@ func (s *UserService) GetAll(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": users})
 }
 
+// GetByID godoc
+// @Summary Get user by ID
+// @Description Admin only. Get detail user with profile
+// @Tags Users
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]model.UserWithProfileResponse
+// @Failure 404 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /users/{id} [get]
 func (s *UserService) GetByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -218,6 +277,17 @@ func (s *UserService) GetByID(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": user})
 }
 
+// Delete godoc
+// @Summary Delete user
+// @Description Admin only. Soft delete user
+// @Tags Users
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /users/{id} [delete]
 func (s *UserService) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
 
